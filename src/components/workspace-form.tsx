@@ -12,7 +12,15 @@ const actions = {
   workflows: requestWorkflow,
   settings: updateOrganization,
 };
-export function WorkspaceForm({ kind, name }: { kind: keyof typeof actions; name?: string }) {
+export function WorkspaceForm({
+  kind,
+  name,
+  publish = false,
+}: {
+  kind: keyof typeof actions;
+  name?: string;
+  publish?: boolean;
+}) {
   const [state, action, pending] = useActionState(actions[kind], {});
   return (
     <form className="workspace-form" action={action}>
@@ -72,7 +80,9 @@ export function WorkspaceForm({ kind, name }: { kind: keyof typeof actions; name
                 Publication status
                 <select name="status">
                   <option value="draft">Draft — content authors only</option>
-                  <option value="published">Published — all organization members</option>
+                  {publish && (
+                    <option value="published">Published — all organization members</option>
+                  )}
                 </select>
               </label>
             </>

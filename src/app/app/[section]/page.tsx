@@ -5,6 +5,7 @@ import { canAuthor, canAdmin } from "@/lib/permissions";
 import { modules } from "@/lib/modules";
 import { WorkspaceForm } from "@/components/workspace-form";
 import { KnowledgeEditor } from "@/components/knowledge-editor";
+import { KnowledgeOnboarding } from "@/components/knowledge-onboarding";
 import { markNotificationRead } from "@/app/app/actions";
 function Empty({
   title,
@@ -46,11 +47,12 @@ export default async function ModulePage({ params }: { params: Promise<{ section
     );
     content = (
       <>
+        {author && <KnowledgeOnboarding admin={admin} />}
         {author && (
           <details className="workspace-card">
             <summary>Add a knowledge resource</summary>
             <div style={{ marginTop: 20 }}>
-              <WorkspaceForm kind="knowledge" />
+              <WorkspaceForm kind="knowledge" publish={admin} />
             </div>
           </details>
         )}
@@ -75,7 +77,9 @@ export default async function ModulePage({ params }: { params: Promise<{ section
                     </>
                   )}
                 </small>
-                {author && record.status === "draft" && <KnowledgeEditor record={record} />}
+                {author && record.status === "draft" && (
+                  <KnowledgeEditor record={record} publish={admin} />
+                )}
               </article>
             ))}
           </div>

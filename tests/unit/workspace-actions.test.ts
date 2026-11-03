@@ -45,6 +45,13 @@ beforeEach(() => {
   });
 });
 describe("draft edit action boundaries", () => {
+  it("requires administrator approval before publishing knowledge", async () => {
+    const data = form();
+    data.set("status", "published");
+    expect((await createKnowledge({}, data)).error).toBe(true);
+    expect((await updateKnowledge({}, data)).error).toBe(true);
+    expect(from).not.toHaveBeenCalled();
+  });
   it("requires author permission before contacting the data API", async () => {
     workspace.mockResolvedValue({ role: "learner" });
     expect((await updateKnowledge({}, form())).error).toBe(true);

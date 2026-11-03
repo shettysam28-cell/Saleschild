@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+// Availability checks are separate from successful, verified-account authentication.
+const authConfigured = process.env.PLAYWRIGHT_AUTH_CONFIGURED === "true";
 test("public homepage tells the product story without internal material", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -43,24 +45,31 @@ test("sample knowledge search, sources, learning, and analytics respond to input
   await expect(page.getByText("72", { exact: false }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
-test("workspace routes deny access without configured authentication", async ({ page }) => {
+test("workspace routes deny access without an authenticated session", async ({ page }) => {
   for (const path of ["/app", "/app/knowledge", "/app/analytics", "/onboarding"]) {
     await page.goto(path);
     await expect(page).toHaveURL(/\/login/);
     await expect(page.getByRole("heading", { name: "Good to see you." })).toBeVisible();
   }
-  await expect(page.getByRole("button", { name: /Welcome back/ })).toBeDisabled();
-  await expect(page.getByText(/Customer access is being prepared/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Welcome back/ })).toBeEnabled({
+    enabled: authConfigured,
+  });
+  if (!authConfigured)
+    await expect(page.getByText(/Customer access is being prepared/)).toBeVisible();
 });
 test("registration and recovery are honest about integration readiness", async ({ page }) => {
   await page.goto("/register");
   await expect(page.getByRole("heading", { name: "It starts with you." })).toBeVisible();
   await expect(page.getByLabel("Work email")).toHaveAttribute("type", "email");
   await expect(page.getByLabel("Password", { exact: true })).toHaveAttribute("minlength", "12");
-  await expect(page.getByRole("button", { name: /Create your account/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Create your account/ })).toBeEnabled({
+    enabled: authConfigured,
+  });
   await page.goto("/forgot-password");
   await expect(page.getByRole("heading", { name: "Find your way back." })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Send reset link/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Send reset link/ })).toBeEnabled({
+    enabled: authConfigured,
+  });
 });
 test("internal instructions and configuration cannot be downloaded", async ({ request }) => {
   for (const path of [
