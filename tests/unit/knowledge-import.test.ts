@@ -104,6 +104,15 @@ describe("bounded untrusted source parsing", () => {
     const bomb = zipSync({ "xl/workbook.xml": new Uint8Array(5 * 1024 * 1024) });
     await expect(parseSource(file(bomb, "bomb.xlsx"))).rejects.toThrow(/unsafe|large/);
   });
+  it("bounds actual ZIP expansion even when declared sizes are forged", async () => {
+    const bomb = zipSync({ "xl/workbook.xml": new Uint8Array(5 * 1024 * 1024) });
+    const view = new DataView(bomb.buffer, bomb.byteOffset, bomb.byteLength);
+    for (let i = 0; i < bomb.length - 28; i++) {
+      if (view.getUint32(i, true) === 0x04034b50) view.setUint32(i + 22, 32, true);
+      if (view.getUint32(i, true) === 0x02014b50) view.setUint32(i + 24, 32, true);
+    }
+    await expect(parseSource(file(bomb, "forged.xlsx"))).rejects.toThrow(/unsafe|large/);
+  });
   it("rejects XML entities and external relationships", async () => {
     for (const xml of [
       '<!DOCTYPE test [<!ENTITY x "hello">]>',

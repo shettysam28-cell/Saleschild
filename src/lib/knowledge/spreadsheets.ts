@@ -1,12 +1,55 @@
 import "server-only";
 import ExcelJS from "exceljs";
 import { parse } from "csv-parse/sync";
-import { unzipSync } from "fflate";
+import { Unzip, UnzipInflate, zipSync } from "fflate";
 import { columns, instructions, sampleRecord } from "./templates";
 import { MAX_FILE_BYTES, MAX_ROWS, unsafeCell } from "./readiness";
 
 const safeExport = (value: string) => (unsafeCell(value) ? `'${value}` : value);
 const csvCell = (value: string) => `"${safeExport(value).replaceAll('"', '""')}"`;
+function boundedWorkbook(bytes: Uint8Array) {
+  const entries: Record<string, Uint8Array> = Object.create(null);
+  const names = new Set<string>();
+  let expanded = 0,
+    completed = 0;
+  const unzip = new Unzip((entry) => {
+    if (
+      names.has(entry.name) ||
+      names.size >= 128 ||
+      ![0, 8].includes(entry.compression) ||
+      /\.\.|^\/|\\|vba|embeddings|externalLinks/iu.test(entry.name)
+    )
+      throw new Error("Workbook structure is unsafe or too large.");
+    names.add(entry.name);
+    const parts: Uint8Array[] = [];
+    let size = 0;
+    entry.ondata = (error, data, final) => {
+      if (error) throw error;
+      size += data.length;
+      expanded += data.length;
+      if (size > 4 * 1024 * 1024 || expanded > 8 * 1024 * 1024)
+        throw new Error("Workbook expansion is unsafe or too large.");
+      parts.push(data);
+      if (final) {
+        const value = new Uint8Array(size);
+        let offset = 0;
+        for (const part of parts) {
+          value.set(part, offset);
+          offset += part.length;
+        }
+        entries[entry.name] = value;
+        completed++;
+      }
+    };
+    entry.start();
+  });
+  unzip.register(UnzipInflate);
+  // Incremental inflation bounds real output, even when ZIP size metadata lies.
+  for (let offset = 0; offset < bytes.length; offset += 256)
+    unzip.push(bytes.subarray(offset, offset + 256), offset + 256 >= bytes.length);
+  if (completed !== names.size) throw new Error("The workbook archive is incomplete.");
+  return entries;
+}
 export async function createTemplate(id: string, format: "csv" | "xlsx", filled: boolean) {
   const record = sampleRecord(id);
   const rows = filled ? [columns.map((c) => record[c])] : [];
@@ -55,26 +98,7 @@ export async function parseSource(file: File): Promise<ParsedSource> {
   } else {
     if (bytes[0] !== 0x50 || bytes[1] !== 0x4b)
       throw new Error("This file is not an XLSX workbook.");
-    let count = 0,
-      expanded = 0;
-    const names = new Set<string>();
-    const entries = unzipSync(bytes, {
-      filter: (entry) => {
-        count++;
-        expanded += entry.originalSize;
-        if (names.has(entry.name)) throw new Error("Duplicate workbook parts are not supported.");
-        names.add(entry.name);
-        if (
-          count > 128 ||
-          entry.originalSize > 4 * 1024 * 1024 ||
-          expanded > 8 * 1024 * 1024 ||
-          ![0, 8].includes(entry.compression) ||
-          /\.\.|^\/|vba|embeddings|externalLinks/iu.test(entry.name)
-        )
-          throw new Error("Workbook structure is unsafe or too large.");
-        return true;
-      },
-    });
+    const entries = boundedWorkbook(bytes);
     if (!entries["[Content_Types].xml"] || !entries["xl/workbook.xml"])
       throw new Error("This archive is not an XLSX workbook.");
     for (const [name, entry] of Object.entries(entries)) {
@@ -87,7 +111,10 @@ export async function parseSource(file: File): Promise<ParsedSource> {
         throw new Error("External links, macros and XML entities are not supported.");
     }
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(bytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+    // Repack only bounded, inspected bytes; the parser never reinflates the original archive.
+    await workbook.xlsx.load(
+      Buffer.from(zipSync(entries)) as unknown as Parameters<typeof workbook.xlsx.load>[0],
+    );
     if (workbook.worksheets.length > 3)
       throw new Error("Keep at most three sheets and use a Sample Data sheet.");
     const sheet =
