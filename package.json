@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
+    "build:netlify": "node scripts/await-github-ci.mjs && node scripts/check-deployment-inputs.mjs && npm run check && npm run build && npm run security:build",
     "start": "next start --hostname 0.0.0.0",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
