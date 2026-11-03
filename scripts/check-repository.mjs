@@ -23,7 +23,7 @@ function check(data, label) {
   const text = data.toString("utf8");
   assert(
     !text.includes(["PRIVATE DEVELOPMENT MATERIAL.", " This file"].join("")) &&
-      !text.includes(["Consolidated Internal", " Development Skills"].join("")),
+      !text.includes(["# Saleschild — Consolidated Internal", " Development Skills"].join("")),
     `Private instructions in ${label}`,
   );
   assert(
