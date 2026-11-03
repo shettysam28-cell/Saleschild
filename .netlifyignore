@@ -1,0 +1,8 @@
+AGENTS.md
+docs/
+tests/
+scripts/
+supabase/
+.github/
+.env*
+!.env.example

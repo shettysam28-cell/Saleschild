@@ -1,0 +1,18 @@
+[build]
+  command = "npm run check && npm run build && npm run security:build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "24"
+  NETLIFY_NEXT_SKEW_PROTECTION = "true"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 3000
+  port = 8888
+  framework = "#custom"
+
+# Netlify detects Next.js and supplies its current OpenNext adapter.
+# No SPA fallback; framework routes and server actions must reach the adapter.
+# Secrets and site identity belong in Netlify, never in this file.
+# First public deployment requires explicit user approval.

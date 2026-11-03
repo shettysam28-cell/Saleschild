@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.netlify/
+test-results/
+playwright-report/
+docs/internal/SALESCHILD_SKILLS.md
+docs/internal/slates/
+package-lock.json
+next-env.d.ts
+docs/internal/review/

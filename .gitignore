@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+.netlify/
+.env*
+!.env.example
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+*.pem
+.DS_Store
+supabase/.temp/
+supabase/.branches/
+docs/internal/review/phase-1/video/
+
+# Private engineering material never belongs in the public repository.
+docs/internal/
+
+node_modules

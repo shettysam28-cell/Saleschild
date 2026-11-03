@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+const repository = process.env.GITHUB_REPOSITORY;
+assert(repository === "shettysam28-cell/Saleschild", "Unexpected repository identity");
+const headers = { Accept: "application/vnd.github+json" };
+if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+const response = await fetch(`https://api.github.com/repos/${repository}`, { headers });
+assert(response.ok, `Repository access failed: ${response.status}`);
+const data = await response.json();
+assert(data.visibility === "public", "Expected owner-approved public repository");
+console.log("Verified owner-approved public repository");
