@@ -1,5 +1,5 @@
 [build]
-  command = "npm run check && npm run build && npm run security:build"
+  command = "node scripts/check-deployment-inputs.mjs && npm run check && npm run build && npm run security:build"
   publish = ".next"
 
 [build.environment]

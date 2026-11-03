@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "/*": [
       "./AGENTS.md",
+      "./.env*",
       "./docs/**/*",
       "./tests/**/*",
       "./scripts/**/*",

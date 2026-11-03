@@ -20,6 +20,7 @@ export default function DemoPage() {
           <br />
           Everything here is illustrative. No account or customer data is used.
         </p>
+        <h2 className="sr-only">Explore the Saleschild platform</h2>
         <ProductDemo standalone />
         <KnowledgeTransformation />
         <div className="demo-page-cta">
