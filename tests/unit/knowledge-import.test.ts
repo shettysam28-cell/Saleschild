@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import ExcelJS from "exceljs";
 import { zipSync, strToU8 } from "fflate";
-import { columns, sampleRecord, templateLibrary } from "@/lib/knowledge/templates";
+import { columns, sampleRecord, sampleRecords, templateLibrary } from "@/lib/knowledge/templates";
 import {
   assessReadiness,
   mapRecords,
@@ -25,7 +25,7 @@ describe("safe knowledge source templates", () => {
           source.rows,
           Object.fromEntries(columns.map((c) => [c, c])),
         );
-        expect(records).toEqual([sampleRecord(t.id)]);
+        expect(records).toEqual(sampleRecords(t.id));
         expect(assessReadiness(records, [], "2026-11-03").ready).toBe(true);
       });
     }

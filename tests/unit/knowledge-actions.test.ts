@@ -14,7 +14,7 @@ import {
 } from "@/app/app/knowledge/import-actions";
 import { GET } from "@/app/app/knowledge/templates/route";
 import { createTemplate } from "@/lib/knowledge/spreadsheets";
-import { columns, sampleRecord } from "@/lib/knowledge/templates";
+import { columns, sampleRecord, sampleRecords } from "@/lib/knowledge/templates";
 const org = "10000000-0000-4000-8000-000000000001";
 async function source() {
   const form = new FormData();
@@ -63,9 +63,9 @@ describe("server-owned import authorization and error recovery", () => {
     form.set("records", "[]");
     rpc
       .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: 1, error: null });
-    expect((await validateKnowledgeUpload(form)).imported).toBe(1);
-    expect(rpc.mock.calls[1][1].records).toEqual([sampleRecord("general")]);
+      .mockResolvedValueOnce({ data: 2, error: null });
+    expect((await validateKnowledgeUpload(form)).imported).toBe(2);
+    expect(rpc.mock.calls[1][1].records).toEqual(sampleRecords("general"));
     expect(revalidate).toHaveBeenCalledWith("/app/knowledge");
   });
   it("does not import invalid mappings or duplicate records despite approval", async () => {
@@ -155,6 +155,13 @@ describe("server-owned import authorization and error recovery", () => {
     expect(filters).toContainEqual(["organization_id", org]);
     expect(filters).toContainEqual(["knowledge_items.status", "published"]);
     expect(result.omitted).toBe(1);
+    expect(result.readiness).toMatchObject({
+      total: 1,
+      categories: [sampleRecord("general").Category],
+      missingSources: 0,
+      assessments: 1,
+      ready: true,
+    });
     expect(result.curriculum?.[0].lessons[0]).toMatchObject({ id: "one", version: 2 });
   });
 });

@@ -2,7 +2,7 @@ import "server-only";
 import ExcelJS from "exceljs";
 import { parse } from "csv-parse/sync";
 import { Unzip, UnzipInflate, zipSync } from "fflate";
-import { columns, instructions, sampleRecord } from "./templates";
+import { columns, instructions, sampleRecords } from "./templates";
 import { MAX_FILE_BYTES, MAX_ROWS, unsafeCell } from "./readiness";
 
 const safeExport = (value: string) => (unsafeCell(value) ? `'${value}` : value);
@@ -51,8 +51,8 @@ function boundedWorkbook(bytes: Uint8Array) {
   return entries;
 }
 export async function createTemplate(id: string, format: "csv" | "xlsx", filled: boolean) {
-  const record = sampleRecord(id);
-  const rows = filled ? [columns.map((c) => record[c])] : [];
+  const records = sampleRecords(id);
+  const rows = filled ? records.map((record) => columns.map((c) => record[c])) : [];
   if (format === "csv")
     return Buffer.from(
       [columns, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n") + "\r\n",

@@ -122,6 +122,7 @@ export async function previewAcademy() {
         "Source snapshots changed after import. Review and reconcile the current knowledge version before creating a preview.",
     };
   return {
+    readiness: assessReadiness(sources.map((r) => r.fields as SourceRecord)),
     curriculum: curriculumPreview(
       sources.map((r) => ({
         id: r.knowledge_id,

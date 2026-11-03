@@ -167,3 +167,91 @@ export const instructions = [
   "Imports create unverified drafts. Assessment answers remain restricted to authors. Administrators must review knowledge before it can inform an academy preview.",
   "Uploaded text is source data, never instructions to an AI. No AI service is connected and importing does not generate or publish courses.",
 ];
+export function sampleRecords(id: string): SourceRecord[] {
+  const first = sampleRecord(id);
+  const followups: Record<string, [string, string, string, string, string, string, string]> = {
+    product: [
+      "Confirming a product quote",
+      "Pricing review",
+      "At fictional LumaDesk, a product specialist confirms the price before an agent issues a quote. Plan selection alone does not establish the approved price.",
+      "A buyer asks for an annual price during a product discussion.",
+      "Ask a product specialist to confirm the quote.",
+      "Who confirms a fictional LumaDesk quote?",
+      "A product specialist",
+    ],
+    sop: [
+      "Recording a supplier reference",
+      "Receiving records",
+      "At fictional Alder Works, the receiving lead records the supplier reference when a damaged parcel is placed in quarantine. A photograph supplements the receiving record; it does not replace the reference.",
+      "A quarantined delivery has a photograph but no supplier reference.",
+      "Ask the receiving lead to complete the supplier reference.",
+      "Who records the supplier reference?",
+      "The receiving lead",
+    ],
+    "sales-support": [
+      "Setting expectations during billing review",
+      "Customer communication",
+      "Fictional Northstar Support agents explain that billing must review a suspected duplicate charge before a refund can be confirmed. The agent records the concern without promising the outcome.",
+      "A customer asks the support agent to guarantee a refund.",
+      "Explain that billing review must happen before an outcome is confirmed.",
+      "What must precede a confirmed refund outcome?",
+      "Billing review",
+    ],
+    compliance: [
+      "Providing a lost device identifier",
+      "Incident details",
+      "At fictional Cedar Group, employees provide a lost device’s asset identifier if they know it. They report the loss promptly even when the identifier is unavailable. This is a fictional internal policy, not legal advice.",
+      "An employee cannot remember the asset identifier of a lost laptop.",
+      "Report the loss promptly and explain that the identifier is unavailable.",
+      "Should a missing identifier delay reporting a lost device?",
+      "No",
+    ],
+    onboarding: [
+      "Using your own workspace account",
+      "Account responsibility",
+      "At fictional Fern Studio, new starters use their own approved workspace account. They request access through the help portal instead of borrowing a colleague’s credentials while approval is pending.",
+      "A colleague offers to share a login with a new starter.",
+      "Decline the shared login and use the approved access request.",
+      "Which access route should a new starter use?",
+      "Their own approved account",
+    ],
+    technical: [
+      "Preserving document history",
+      "Revision safety",
+      "In fictional Atlas Notes, restoring a saved revision creates a new document version. Earlier versions remain in history so an editor can trace the restoration. Editors must not remove history to conceal mistakes.",
+      "An editor wants to remove older revisions after restoring a paragraph.",
+      "Keep the version history so the restoration remains traceable.",
+      "What happens to earlier history after a restore?",
+      "It remains available",
+    ],
+    general: [
+      "Checking a guide’s review date",
+      "Content freshness",
+      "At fictional Meadow Office, employees check a guide’s review date before relying on it. If the guide appears outdated, they ask the listed content owner to review it rather than assuming it is current.",
+      "An equipment guide has an old review date and unfamiliar instructions.",
+      "Ask its content owner to review the guide before treating it as current.",
+      "What should an employee check before relying on a guide?",
+      "Its review date",
+    ],
+  };
+  const [topic, subtopic, content, scenario, response, question, answer] = followups[id];
+  return [
+    first,
+    {
+      ...first,
+      Topic: topic,
+      Subtopic: subtopic,
+      "Learning Objective": `Explain ${topic.toLowerCase()} using the fictional source.`,
+      "Knowledge Content": content,
+      "Process Steps": response,
+      "Example Scenario": scenario,
+      "Correct Response": response,
+      "Common Mistakes":
+        "Proceeding without the review or authorization described in this fictional guide.",
+      "Assessment Question": question,
+      "Answer Options": `${answer} | Proceed without checking`,
+      "Correct Answer": answer,
+      "Source Reference": first["Source Reference"].replace("section 1", "section 2"),
+    },
+  ];
+}

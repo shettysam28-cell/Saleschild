@@ -28,6 +28,8 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
     [imported, setImported] = useState<number>();
   const [curriculum, setCurriculum] = useState<Curriculum>(),
     [pending, start] = useTransition();
+  const [academyReadiness, setAcademyReadiness] = useState<Readiness>();
+  const [academyVisible, setAcademyVisible] = useState(false);
   const file = useRef<File | null>(null),
     requestId = useRef("");
   const upload = useRef<HTMLInputElement>(null);
@@ -373,15 +375,71 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
                     `${result.omitted ?? 0} changed source snapshots omitted. Administrator review is required before any future publication.`,
                 );
                 setCurriculum(result.curriculum);
+                setAcademyReadiness(result.readiness);
+                setAcademyVisible(false);
               })
             }
           >
-            Preview my academy <ArrowRight size={16} />
+            Check academy readiness <ArrowRight size={16} />
           </button>
         ) : (
           <p>An organization administrator must review academy proposals.</p>
         )}
-        {curriculum && (
+        {academyReadiness && (
+          <div aria-label="Approved knowledge readiness">
+            <h4>Review your approved knowledge first</h4>
+            <p>
+              This snapshot includes approved imported sources. Manual resources without structured
+              source records and changed source snapshots are excluded. Refresh the readiness check
+              after changing knowledge.
+            </p>
+            <div className="readiness-grid">
+              {[
+                ["Knowledge records", academyReadiness.total],
+                ["Categories", academyReadiness.categories.length],
+                ["Topics", academyReadiness.topics.length],
+                ["Subtopics", academyReadiness.subtopics.length],
+                ["Missing references", academyReadiness.missingSources],
+                ["Incomplete or invalid", academyReadiness.incomplete],
+                ["Potential duplicates", academyReadiness.duplicates],
+                ["Conflicting records", academyReadiness.conflicts],
+                ["Requiring review", academyReadiness.review],
+                ["Assessment material", academyReadiness.assessments],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <strong>{value}</strong>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+            {academyReadiness.review > 0 && (
+              <details>
+                <summary>Review missing or uncertain information</summary>
+                <ul className="validation-findings">
+                  {academyReadiness.issues
+                    .filter((r) => r.warnings.length || r.errors.length)
+                    .map((r) => (
+                      <li key={r.row}>
+                        Record {r.row - 1}: {[...r.errors, ...r.warnings].join(" ")}
+                      </li>
+                    ))}
+                </ul>
+              </details>
+            )}
+            <p>
+              No missing facts are inferred. This action creates a deterministic preview for your
+              review, with no AI service or publication.
+            </p>
+            <button
+              className="button button-dark"
+              disabled={pending || !academyReadiness.ready}
+              onClick={() => setAcademyVisible(true)}
+            >
+              Generate My Learning Academy <ArrowRight size={16} />
+            </button>
+          </div>
+        )}
+        {curriculum && academyVisible && (
           <div aria-label="Deterministic academy preview">
             <p className="record-badge">
               Preview only · administrator review required · no publication
