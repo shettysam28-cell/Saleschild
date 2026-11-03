@@ -2487,3 +2487,260 @@
   min-width: 0;
   max-width: 100%;
 }
+/* An explicit fictional walkthrough of knowledge becoming learning. */
+.marketing .knowledge-story {
+  margin: 110px 0 70px;
+  text-align: left;
+}
+.marketing .knowledge-story h2 {
+  font-family: var(--display);
+  font-size: clamp(34px, 5vw, 62px);
+  line-height: 1.05;
+  letter-spacing: -0.055em;
+  margin: 20px 0;
+}
+.marketing .knowledge-story h2 em {
+  font-family: var(--serif);
+  font-weight: 400;
+  color: #28503a;
+}
+.marketing .knowledge-story > p {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: #4d5b6e;
+}
+.marketing .knowledge-story-frame {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  margin-top: 38px;
+  border: 1px solid #344055;
+  border-radius: 24px;
+  overflow: hidden;
+  background: #141c2b;
+}
+.marketing .knowledge-story-nav {
+  padding: 20px;
+  background: #0d131e;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.marketing .knowledge-story-nav button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #aab5c5;
+  background: none;
+  border: 1px solid transparent;
+  padding: 16px 12px;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+  min-height: 54px;
+}
+.marketing .knowledge-story-nav button small {
+  margin-left: auto;
+  font-size: 10px;
+}
+.marketing .knowledge-story-nav button[aria-pressed="true"] {
+  background: #c8ff5f;
+  color: #090d16;
+  border-color: #c8ff5f;
+}
+.marketing .knowledge-story-nav svg {
+  flex-shrink: 0;
+}
+.marketing .knowledge-story-stage {
+  padding: 40px;
+  min-height: 580px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+.marketing .knowledge-story-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #9faec4;
+}
+.marketing .knowledge-story-stage > svg {
+  color: #58e6e0;
+}
+.marketing .knowledge-story-stage h3 {
+  font-family: var(--display);
+  font-size: clamp(26px, 3vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  margin: 0;
+  color: #f5f3ec;
+}
+.marketing .knowledge-story-stage > p {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #b8c1ce;
+  margin: 0;
+}
+.marketing .fictional-document,
+.marketing .demo-academy-module,
+.marketing .demo-progress {
+  background: #1c283b;
+  border: 1px solid #3b4a60;
+  border-radius: 14px;
+  padding: 24px;
+  width: 100%;
+}
+.marketing .fictional-document > span,
+.marketing .demo-academy-module > span,
+.marketing .demo-progress > span {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: #58e6e0;
+}
+.marketing .fictional-document h4,
+.marketing .demo-academy-module h4 {
+  font-size: 18px;
+  margin: 14px 0;
+  color: #f5f3ec;
+}
+.marketing .fictional-document p,
+.marketing .demo-academy-module p {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #d1d8e3;
+}
+.marketing .demo-academy-module small {
+  font-size: 11px;
+  color: #b8c1ce;
+}
+.marketing .demo-source-record {
+  width: 100%;
+  margin: 0;
+  border: 1px solid #3b4a60;
+  border-radius: 14px;
+  padding: 10px 24px;
+}
+.marketing .demo-source-record > div {
+  padding: 12px 0;
+  border-bottom: 1px solid #344055;
+}
+.marketing .demo-source-record > div:last-child {
+  border: 0;
+}
+.marketing .demo-source-record dt {
+  font-size: 10px;
+  color: #58e6e0;
+  margin-bottom: 5px;
+}
+.marketing .demo-source-record dd {
+  font-size: 13px;
+  color: #e2e7ed;
+  margin: 0;
+  line-height: 1.5;
+}
+.marketing .knowledge-story-bottom {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+.marketing .knowledge-story-bottom > span {
+  font-size: 11px;
+  color: #b8c1ce;
+}
+.marketing .knowledge-story-bottom .button {
+  background: #c8ff5f;
+  color: #090d16;
+}
+.marketing .demo-quiz {
+  border: 1px solid #3b4a60;
+  border-radius: 14px;
+  padding: 20px;
+  width: 100%;
+  min-width: 0;
+}
+.marketing .demo-quiz legend {
+  padding: 8px;
+  color: #f5f3ec;
+  font-size: 15px;
+}
+.marketing .demo-quiz button {
+  padding: 14px 20px;
+  margin: 8px 12px 8px 0;
+  border: 1px solid #687a90;
+  border-radius: 9px;
+  background: #1c283b;
+  color: #f5f3ec;
+  cursor: pointer;
+}
+.marketing .demo-quiz button[aria-pressed="true"] {
+  border-color: #c8ff5f;
+  color: #c8ff5f;
+}
+.marketing .demo-quiz p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #e3e9dc;
+}
+.marketing .demo-progress strong {
+  display: block;
+  font-size: 64px;
+  color: #c8ff5f;
+  letter-spacing: -0.05em;
+  margin: 20px 0;
+}
+.marketing .demo-progress p,
+.marketing .demo-progress small {
+  font-size: 12px;
+  color: #d1d8e3;
+}
+.marketing .demo-progress > div {
+  height: 8px;
+  background: #3b4a60;
+  border-radius: 10px;
+  margin: 18px 0;
+}
+.marketing .demo-progress > div > span {
+  display: block;
+  width: 33.33%;
+  height: 100%;
+  background: #58e6e0;
+  border-radius: 10px;
+}
+@media (max-width: 760px) {
+  .marketing .knowledge-story-frame {
+    grid-template-columns: 1fr;
+  }
+  .marketing .knowledge-story-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 12px;
+    gap: 8px;
+  }
+  .marketing .knowledge-story-nav button {
+    flex-shrink: 0;
+    padding: 12px;
+  }
+  .marketing .knowledge-story-nav button small {
+    display: none;
+  }
+  .marketing .knowledge-story-stage {
+    padding: 24px;
+    min-height: 600px;
+  }
+  .marketing .knowledge-story > p {
+    font-size: 12px;
+    gap: 8px;
+  }
+  .marketing .knowledge-story-bottom .button {
+    padding: 14px;
+    font-size: 11px;
+  }
+}

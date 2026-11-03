@@ -17,6 +17,7 @@ export async function createKnowledge(_state: ActionState, form: FormData): Prom
   const { client, user, organization, role } = await requireWorkspace();
   if (!canAuthor(role)) return denied;
   const parsed = knowledgeSchema.safeParse(Object.fromEntries(form));
+  if (parsed.success && parsed.data.status === "published" && !canAdmin(role)) return denied;
   if (!parsed.success)
     return {
       error: true,
@@ -59,6 +60,7 @@ export async function updateKnowledge(_state: ActionState, form: FormData): Prom
   const { client, organization, role } = await requireWorkspace();
   if (!canAuthor(role)) return denied;
   const parsed = knowledgeSchema.safeParse(Object.fromEntries(form));
+  if (parsed.success && parsed.data.status === "published" && !canAdmin(role)) return denied;
   const identity = z
     .object({ id: z.uuid(), version: z.coerce.number().int().positive() })
     .safeParse({ id: form.get("id"), version: form.get("version") });

@@ -3,7 +3,9 @@ import { useActionState } from "react";
 import { updateKnowledge } from "@/app/app/actions";
 export function KnowledgeEditor({
   record,
+  publish = false,
 }: {
+  publish?: boolean;
   record: {
     id: string;
     title: string;
@@ -47,7 +49,9 @@ export function KnowledgeEditor({
           Publication status
           <select name="status" defaultValue="draft">
             <option value="draft">Keep as draft</option>
-            <option value="published">Publish to organization members</option>
+            {publish && (
+              <option value="published">Approve and publish to organization members</option>
+            )}
           </select>
         </label>
         {state.message && (

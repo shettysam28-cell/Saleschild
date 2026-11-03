@@ -36,6 +36,7 @@ export async function proxy(request: NextRequest) {
     return response;
   }
   const client = createServerClient(config.url, config.key, {
+    cookieOptions: { sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/" },
     cookies: {
       getAll() {
         return request.cookies.getAll();

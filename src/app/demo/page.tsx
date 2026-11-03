@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { MarketingShell } from "@/components/marketing-shell";
 import { ProductDemo } from "@/components/product-demo";
+import { KnowledgeTransformation } from "@/components/knowledge-transformation";
 export const metadata: Metadata = { title: "Explore the platform" };
 export default function DemoPage() {
   return (
@@ -20,6 +21,7 @@ export default function DemoPage() {
           Everything here is illustrative. No account or customer data is used.
         </p>
         <ProductDemo standalone />
+        <KnowledgeTransformation />
         <div className="demo-page-cta">
           <span>See a place for Saleschild in your organization?</span>
           <Link className="button button-dark" href="/register">
