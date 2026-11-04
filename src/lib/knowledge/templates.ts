@@ -160,9 +160,9 @@ export function sampleRecord(id: string): SourceRecord {
 export const instructions = [
   "All examples are fictional. Replace them with knowledge your organization is authorized to use.",
   "Keep these column names. Fill Topic (3–160 characters), Category and Knowledge Content (20–12,000 characters). Other columns are optional and appear in readiness checks.",
-  "Use one record per row. Maximum 200 records, 2 MiB per file. Upload the Sample Data sheet of an .xlsx workbook or a UTF-8 .csv file.",
+  "Use one record per row. Maximum 200 non-empty records and 32 populated columns, 2 MiB per file. Safety limits: 20 worksheets, physical row 10,000, 10,000 XML cells per sheet and 8 MiB expanded workbook. Blank formatted rows within these limits are ignored. Choose the populated worksheet of an .xlsx workbook or a UTF-8 .csv file.",
   "Use YYYY-MM-DD for dates; Beginner, Intermediate or Advanced for Difficulty. Separate Answer Options with |. Correct Answer must match an option.",
-  "Do not use formulas, macros, external links or embedded objects. Spreadsheet cells beginning with formula characters are rejected on import.",
+  "Do not use formulas, macros, external workbook connections or embedded objects. Ordinary web/email hyperlinks are read as plain text, never fetched. Formula expressions are rejected; ordinary negative numbers and hyphen bullets are supported.",
   "A Source Reference can be an internal document and section or a secure https URL. Include review date and content owner where possible.",
   "Imports create unverified drafts. Assessment answers remain restricted to authors. Administrators must review knowledge before it can inform an academy preview.",
   "Uploaded text is source data, never instructions to an AI. No AI service is connected and importing does not generate or publish courses.",

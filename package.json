@@ -22,7 +22,8 @@
     "review:capture": "node scripts/capture-motion.mjs",
     "review:measure": "node scripts/measure-local.mjs",
     "security:repo": "node scripts/check-repository.mjs",
-    "verify:repository": "node scripts/verify-repository.mjs"
+    "verify:repository": "node scripts/verify-repository.mjs",
+    "test:import:e2e": "playwright test --config=playwright.import.config.ts"
   },
   "engines": {
     "node": ">=22.14.0"
@@ -43,7 +44,9 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "resend": "6.37.0",
+    "saxes": "6.0.0",
     "server-only": "0.0.1",
+    "ssf": "0.11.2",
     "zod": "4.6.7"
   },
   "devDependencies": {
@@ -61,6 +64,7 @@
     "supabase": "3.0.0",
     "tailwindcss": "4.3.4",
     "typescript": "6.0.3",
+    "vite": "8.3.5",
     "vitest": "5.1.0"
   }
 }

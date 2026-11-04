@@ -35,8 +35,8 @@ describe("server-owned import authorization and error recovery", () => {
   it("denies learner uploads, validation, downloads and academy previews before data access", async () => {
     workspace.mockResolvedValue({ role: "learner" });
     const form = await source();
-    expect((await inspectKnowledgeUpload(form)).error).toMatch(/authors/);
-    expect((await validateKnowledgeUpload(form)).error).toMatch(/authors/);
+    expect((await inspectKnowledgeUpload(form)).error).toMatch(/author/);
+    expect((await validateKnowledgeUpload(form)).error).toMatch(/author/);
     expect((await previewAcademy()).error).toMatch(/administrator/);
     expect(
       (
@@ -61,21 +61,16 @@ describe("server-owned import authorization and error recovery", () => {
     form.set("approve", "yes");
     form.set("readiness", JSON.stringify({ ready: true }));
     form.set("records", "[]");
-    rpc
-      .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: 2, error: null });
+    rpc.mockResolvedValueOnce({ data: 2, error: null });
     expect((await validateKnowledgeUpload(form)).imported).toBe(2);
-    expect(rpc.mock.calls[1][1].records).toEqual(sampleRecords("general"));
+    expect(rpc.mock.calls[0][1].records).toEqual(sampleRecords("general"));
     expect(revalidate).toHaveBeenCalledWith("/app/knowledge");
   });
   it("does not import invalid mappings or duplicate records despite approval", async () => {
     const form = await source();
     form.set("approve", "yes");
-    rpc.mockResolvedValue({
-      data: [{ fields: sampleRecord("general"), knowledge_id: "existing" }],
-      error: null,
-    });
-    expect((await validateKnowledgeUpload(form)).error).toMatch(/Resolve/);
+    rpc.mockResolvedValue({ data: null, error: { code: "23505" } });
+    expect((await validateKnowledgeUpload(form)).diagnostic?.code).toBe("DUPLICATE");
     expect(rpc).toHaveBeenCalledTimes(1);
     form.set("mapping", JSON.stringify({ Topic: "Topic", Category: "Topic" }));
     expect((await validateKnowledgeUpload(form)).error).toBeDefined();
@@ -86,12 +81,10 @@ describe("server-owned import authorization and error recovery", () => {
     form.set("approve", "yes");
     rpc.mockResolvedValueOnce({ data: null, error: { message: "private database diagnostic" } });
     const failed = await validateKnowledgeUpload(form);
-    expect(failed.error).toMatch(/No records/);
+    expect(failed.error).toMatch(/No partial import/);
     expect(JSON.stringify(failed)).not.toContain("private database diagnostic");
-    rpc
-      .mockResolvedValueOnce({ data: [], error: null })
-      .mockResolvedValueOnce({ data: null, error: { message: "private database diagnostic" } });
-    expect((await validateKnowledgeUpload(form)).error).toMatch(/Nothing was imported/);
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "private database diagnostic" } });
+    expect((await validateKnowledgeUpload(form)).error).toMatch(/No partial import/);
     expect(revalidate).not.toHaveBeenCalled();
   });
   it("delivers only known authenticated templates with private cache policy", async () => {

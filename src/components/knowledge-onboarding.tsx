@@ -1,4 +1,7 @@
 "use client";
+import { useRouter } from "next/navigation";
+import { suggestMappings } from "@/lib/knowledge/readiness";
+import type { ImportDiagnostic } from "@/lib/knowledge/diagnostics";
 import { useRef, useState, useTransition } from "react";
 import {
   UploadCloud,
@@ -18,6 +21,11 @@ import {
 } from "@/app/app/knowledge/import-actions";
 type Curriculum = ReturnType<typeof curriculumPreview>;
 export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
+  const router = useRouter();
+  const [worksheets, setWorksheets] = useState<string[]>([]);
+  const [worksheetChoice, setWorksheetChoice] = useState("");
+  const [excludedRows, setExcludedRows] = useState<number[]>([]);
+  const [issue, setIssue] = useState<ImportDiagnostic>();
   const [library, setLibrary] = useState(false),
     [step, setStep] = useState(1),
     [source, setSource] = useState<ParsedSource>();
@@ -33,6 +41,18 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
   const file = useRef<File | null>(null),
     requestId = useRef("");
   const upload = useRef<HTMLInputElement>(null);
+  async function request<T>(call: () => Promise<T>): Promise<T | undefined> {
+    try {
+      return await call();
+    } catch {
+      const message =
+        "Connection interrupted. Keep this source and retry. An approved import may already have completed; the same request prevents duplicate writes.";
+      setFailed(true);
+      setMessage(message);
+      setIssue({ code: "NETWORK", message });
+      return undefined;
+    }
+  }
   function reset() {
     file.current = null;
     setSource(undefined);
@@ -46,38 +66,47 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
   function form(approve = false) {
     const data = new FormData();
     if (file.current) data.set("file", file.current);
+    data.set("worksheet", worksheetChoice);
+    data.set("excludedRows", JSON.stringify(excludedRows));
     data.set("mapping", JSON.stringify(mapping));
     data.set("requestId", requestId.current);
     if (approve) data.set("approve", "yes");
     return data;
   }
-  function inspect(selected: File) {
+  function inspect(selected: File, worksheet = "") {
     reset();
+    setExcludedRows([]);
+    setIssue(undefined);
+    setWorksheetChoice(worksheet);
     file.current = selected;
     requestId.current = crypto.randomUUID();
     const data = new FormData();
     data.set("file", selected);
+    data.set("worksheet", worksheet);
     start(async () => {
-      const result = await inspectKnowledgeUpload(data);
+      const result = await request(() => inspectKnowledgeUpload(data));
+      if (!result) return;
+      setIssue(result.diagnostic);
       setFailed(Boolean(result.error));
       setMessage(result.error ?? "");
+      if (result.diagnostic?.worksheets) {
+        setWorksheets(result.diagnostic.worksheets);
+        setWorksheetChoice(result.diagnostic.worksheet ?? worksheet);
+      }
       if (result.source) {
         setSource(result.source);
         setStep(2);
-        setMapping(
-          Object.fromEntries(
-            columns.map((c) => [
-              c,
-              result.source!.headers.find((h) => h.toLowerCase() === c.toLowerCase()) ?? "",
-            ]),
-          ),
-        );
+        setMapping(suggestMappings(result.source.headers));
+        setWorksheets(result.source.worksheets ?? []);
+        setWorksheetChoice(result.source.worksheet ?? "");
       }
     });
   }
   function validate(approve = false) {
     start(async () => {
-      const result = await validateKnowledgeUpload(form(approve));
+      const result = await request(() => validateKnowledgeUpload(form(approve)));
+      if (!result) return;
+      setIssue(result.diagnostic);
       setFailed(Boolean(result.error));
       setMessage(result.error ?? "");
       if (result.readiness) {
@@ -86,6 +115,7 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
       }
       if (result.imported !== undefined) {
         setImported(result.imported);
+        router.refresh();
         setStep(6);
         setMessage(
           `${result.imported} records imported as unverified drafts. Nothing has been published.`,
@@ -176,6 +206,25 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
           are sent to an AI.
         </small>
       </div>
+      {worksheets.length > 1 && (
+        <label className="form-field">
+          Data worksheet
+          <select
+            value={worksheetChoice}
+            disabled={pending}
+            onChange={(e) => {
+              const f = file.current;
+              if (f) inspect(f, e.target.value);
+            }}
+          >
+            {worksheets.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <ol className="import-steps" aria-label="Import progress">
         {["Choose source", "Preview", "Map columns", "Validate", "Readiness", "Import drafts"].map(
           (label, i) => (
@@ -191,11 +240,20 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
           {message}
         </p>
       )}
+      {issue && (
+        <p className="form-help">
+          {issue.code}
+          {issue.worksheet ? ` · Worksheet: ${issue.worksheet}` : ""}
+          {issue.row ? ` · Row ${issue.row}` : ""}
+          {issue.column ? ` · Column: ${issue.column}` : ""}
+        </p>
+      )}
       {pending && <p role="status">Checking your source securely…</p>}
       {source && step === 2 && (
         <div>
           <h3>Preview: {source.name}</h3>
           <p>
+            {source.worksheet ? `${source.worksheet} · ` : ""}
             {source.rows.length} records · first three shown. Your source is treated as untrusted
             data.
           </p>
@@ -247,6 +305,9 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
                 {c}
                 {["Topic", "Category", "Knowledge Content"].includes(c) ? " *" : ""}
                 <select
+                  aria-label={
+                    c + (["Topic", "Category", "Knowledge Content"].includes(c) ? " *" : "")
+                  }
                   value={mapping[c] ?? ""}
                   disabled={pending}
                   onChange={(e) => setMapping({ ...mapping, [c]: e.target.value })}
@@ -300,6 +361,22 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
                   .filter((r) => r.errors.length || r.warnings.length)
                   .map((r) => (
                     <li key={r.row}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={excludedRows.includes(r.row)}
+                          onChange={(e) => {
+                            setExcludedRows(
+                              e.target.checked
+                                ? [...excludedRows, r.row]
+                                : excludedRows.filter((n) => n !== r.row),
+                            );
+                            setReadiness({ ...readiness, ready: false });
+                            setStep(4);
+                          }}
+                        />
+                        Exclude row {r.row}
+                      </label>{" "}
                       <strong>Row {r.row}</strong>: {[...r.errors, ...r.warnings].join(" ")}
                     </li>
                   ))}
@@ -310,6 +387,27 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
             Imported knowledge remains unverified. Source references, dates, owners and assessment
             answers are preserved for author review. No raw file is retained.
           </p>
+          {excludedRows.length > 0 && (
+            <p>
+              {excludedRows.length} row(s) excluded. Revalidate the remaining rows before approval.
+            </p>
+          )}
+          <button className="button button-outline" disabled={pending} onClick={() => validate()}>
+            Revalidate selected rows
+          </button>
+          {excludedRows.length > 0 && (
+            <button
+              className="button button-outline"
+              disabled={pending}
+              onClick={() => {
+                setExcludedRows([]);
+                setReadiness({ ...readiness, ready: false });
+                setStep(4);
+              }}
+            >
+              Restore excluded rows
+            </button>
+          )}
           <div className="knowledge-actions">
             <button
               className="button button-outline"
@@ -368,7 +466,9 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
             disabled={pending}
             onClick={() =>
               start(async () => {
-                const result = await previewAcademy();
+                const result = await request(() => previewAcademy());
+                if (!result) return;
+                setIssue(undefined);
                 setFailed(Boolean(result.error));
                 setMessage(
                   result.error ??

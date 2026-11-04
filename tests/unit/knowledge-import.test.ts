@@ -35,7 +35,7 @@ describe("safe knowledge source templates", () => {
     expect(w.getWorksheet("Instructions")!.rowCount).toBeGreaterThan(6);
     expect(w.getWorksheet("Sample Data")!.rowCount).toBe(1);
     await expect(parseSource(file(await createTemplate("general", "csv", false)))).rejects.toThrow(
-      /filled/,
+      /blank/,
     );
   });
   it("requires a known template", async () => {
@@ -122,7 +122,7 @@ describe("bounded untrusted source parsing", () => {
         "[Content_Types].xml": strToU8("<Types/>"),
         "xl/workbook.xml": strToU8(xml),
       });
-      await expect(parseSource(file(zip, "unsafe.xlsx"))).rejects.toThrow(/External|entities/);
+      await expect(parseSource(file(zip, "unsafe.xlsx"))).rejects.toThrow(/external|entities/i);
     }
   });
 });

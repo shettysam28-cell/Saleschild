@@ -623,3 +623,95 @@ describe("guided knowledge import migration", () => {
     expect(rows.every((r) => !r.definer && !r.anon)).toBe(true);
   });
 });
+
+describe("spreadsheet v2 provenance and duplicate identity", () => {
+  const request = "20000000-0000-4000-8000-000000000001";
+  const first = {
+    ...sampleRecord("general"),
+    Topic: "Shared operational topic",
+    "Process Steps": "- Inspect the instrument.",
+  };
+  const second = {
+    ...first,
+    "Knowledge Content":
+      "A separate fictional fact about recording instrument readings before use.",
+  };
+  const context = { worksheet: "Selected knowledge", rows: [2, 7] };
+  const run = (
+    id: string,
+    org: string,
+    records: unknown[],
+    nonce = request,
+    sourceContext: unknown = context,
+  ) =>
+    asUser(id, () =>
+      db.query<{ count: number }>(
+        "select public.import_knowledge_records_v2($1,$2,$3,$4::jsonb,$5::jsonb)count",
+        [org, nonce, "official.xlsx", JSON.stringify(records), JSON.stringify(sourceContext)],
+      ),
+    );
+  it("imports independent facts sharing a topic, retains physical source rows and retries idempotently", async () => {
+    expect((await run(users.a, orgA, [first, second])).rows[0].count).toBe(2);
+    expect((await run(users.a, orgA, [first, second])).rows[0].count).toBe(2);
+    const batch = await asUser(users.a, () =>
+      db.query<{ source_context: unknown; record_count: number }>(
+        "select source_context,record_count from public.knowledge_import_batches where request_id=$1",
+        [request],
+      ),
+    );
+    expect(batch.rows[0]).toMatchObject({ source_context: context, record_count: 2 });
+  });
+  it("rejects exact duplicates and changed retries without partial writes", async () => {
+    await expect(
+      run(users.a, orgA, [first], "20000000-0000-4000-8000-000000000002", {
+        worksheet: "Data",
+        rows: [2],
+      }),
+    ).rejects.toThrow(/Duplicate/);
+    await expect(
+      run(users.a, orgA, [first, second], request, { worksheet: "Changed sheet", rows: [2, 7] }),
+    ).rejects.toThrow(/different source/);
+    const before = (
+      await db.query<{ count: number }>(
+        "select count(*)::int count from public.knowledge_import_batches",
+      )
+    ).rows[0].count;
+    await expect(
+      run(
+        users.a,
+        orgA,
+        [
+          { ...first, Topic: "New record" },
+          { ...second, Topic: "Invalid record", "Knowledge Content": "short" },
+        ],
+        "20000000-0000-4000-8000-000000000003",
+      ),
+    ).rejects.toThrow(/Invalid/);
+    expect(
+      (
+        await db.query<{ count: number }>(
+          "select count(*)::int count from public.knowledge_import_batches",
+        )
+      ).rows[0].count,
+    ).toBe(before);
+  });
+  it("denies foreign tenants and learners, and validates source coordinate payloads", async () => {
+    for (const user of [users.b, users.learner])
+      await expect(run(user, orgA, [first, second])).rejects.toThrow(/Author access/);
+    await expect(
+      run(users.a, orgA, [first, second], "20000000-0000-4000-8000-000000000004", {
+        worksheet: "Data",
+        rows: [2],
+      }),
+    ).rejects.toThrow(/source context/);
+    expect(
+      (
+        await asUser(users.b, () =>
+          db.query("select fields from public.knowledge_source_records where organization_id=$1", [
+            orgA,
+          ]),
+        )
+      ).rows,
+    ).toEqual([]);
+  });
+});
