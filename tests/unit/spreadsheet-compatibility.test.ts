@@ -2,6 +2,7 @@ import { it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { readFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
+import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate";
 import { parseSource, createTemplate } from "@/lib/knowledge/spreadsheets";
 import { assessReadiness, mapRecords, suggestMappings } from "@/lib/knowledge/readiness";
 for (const name of ["openpyxl-inline.xlsx", "shared-prefixed.xlsx"])
@@ -113,6 +114,24 @@ it("treats technical words and safe hyperlink labels as data, never workbook ins
   );
   expect(parsed.rows[0][2]).toContain("macroEnabled");
   expect(parsed.rows[0][3]).toBe("training@example.test");
+});
+it("rejects actual macro content types and embedded-object nodes without keyword false positives", async () => {
+  for (const macro of [true, false]) {
+    const entries = unzipSync(await createTemplate("product", "xlsx", true));
+    const path = macro ? "[Content_Types].xml" : "xl/worksheets/sheet2.xml";
+    const xml = strFromU8(entries[path]);
+    entries[path] = strToU8(
+      macro
+        ? xml.replace(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
+            "application/vnd.ms-excel.sheet.macroEnabled.main+xml",
+          )
+        : xml.replace("</worksheet>", "<oleObjects/></worksheet>"),
+    );
+    await expect(
+      parseSource(new File([new Uint8Array(zipSync(entries))], "unsafe.xlsx")),
+    ).rejects.toMatchObject({ diagnostic: { code: "UNSAFE_WORKBOOK" } });
+  }
 });
 it("accepts exactly 200 records and reports the first record beyond the limit", async () => {
   const header = "Topic,Category,Knowledge Content\n";

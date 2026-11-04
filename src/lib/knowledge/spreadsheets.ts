@@ -159,6 +159,15 @@ export async function parseSource(file: File, selected?: string): Promise<Parsed
             ]),
           );
           if (
+            /^(oleObject|oleObjects)$/iu.test(local ?? "") ||
+            (name === "[Content_Types].xml" &&
+              /macroEnabled|vbaProject/iu.test(attrs.contenttype ?? ""))
+          )
+            fail(
+              "UNSAFE_WORKBOOK",
+              "Remove macros and embedded objects, then save a standard XLSX workbook.",
+            );
+          if (
             local === "Relationship" &&
             attrs.targetmode === "External" &&
             (!attrs.type?.endsWith("/hyperlink") ||
