@@ -1262,4 +1262,33 @@ describe("Universal Gateway and existing Learning Paths (real migrations and RLS
     expect(functions).toHaveLength(names.length);
     expect(functions.every((f) => !f.prosecdef && !f.anonymous)).toBe(true);
   });
+  it("lets editors add approved organization knowledge without granting source update/publication access", async () => {
+    const editorPath = (
+      await asUser(users.editor, () =>
+        db.query<{ id: string }>(
+          "insert into public.courses(organization_id,title,description,created_by)values($1,'Editor-authored path','A draft path containing approved source snapshots.',$2)returning id",
+          [orgA, users.editor],
+        ),
+      )
+    ).rows[0].id;
+    const added = await asUser(users.editor, () =>
+      db.query<{ n: number }>("select public.add_knowledge_to_learning_path($1,$2,$3,$4)n", [
+        orgA,
+        editorPath,
+        [otherKnowledgeId],
+        crypto.randomUUID(),
+      ]),
+    );
+    expect(added.rows[0].n).toBe(1);
+    expect(
+      (
+        await asUser(users.editor, () =>
+          db.query(
+            "update public.knowledge_items set title='Unauthorized published edit' where id=$1 returning id",
+            [otherKnowledgeId],
+          ),
+        )
+      ).rows,
+    ).toHaveLength(0);
+  });
 });

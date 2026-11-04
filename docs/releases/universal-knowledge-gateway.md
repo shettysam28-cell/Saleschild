@@ -38,13 +38,13 @@ Actual Office formulas, macros, ActiveX, embedded objects, document types/entiti
 
 ## Migration and operations
 
-The additive `universal_knowledge_gateway` migration adds three RLS-protected tables for private upload reviews, immutable source provenance and Learning Path source batches. Existing knowledge/current-version rows gain bounded custom fields; lessons gain tenant-safe references to approved knowledge versions. Legacy rows, source snapshots, original migration files and existing Academy behavior are preserved. All new public RPCs use SECURITY INVOKER with anonymous execution revoked. No privileged browser credential or new environment variable is required.
+The additive `universal_knowledge_gateway` migration adds three RLS-protected tables for private upload reviews, immutable source provenance and Learning Path source batches. Existing knowledge/current-version rows gain bounded custom fields; lessons gain tenant-safe references to approved knowledge versions. Legacy rows, source snapshots, original migration files and existing Academy behavior are preserved. All new public RPCs use SECURITY INVOKER with anonymous execution revoked. No privileged browser credential or new environment variable is required. The follow-up `learning_path_author_access` migration removes a source row-lock that incorrectly invoked published-record UPDATE policies for editors; organization serialization, SELECT RLS, immutable source guards and publication permissions remain enforced.
 
 Apply this migration through the controlled database migration workflow before releasing the application. A website build does not apply migrations automatically. Existing Netlify configuration, Next.js runtime and the matching-main-CI production gate remain in place. No runtime dependency was added.
 
 ## Validation evidence
 
-- 200 unit/integration/database tests, including real SQL/RLS, source/version preservation, cache reuse, stale revisions, idempotent retries, tenant/role denial and malicious Office structures.
+- 201 unit/integration/database tests, including real SQL/RLS, source/version preservation, cache reuse, stale revisions, idempotent retries, tenant/role denial and malicious Office structures.
 - 38 public-site Playwright checks for accessibility, protected routes, responsive layouts, navigation and reduced motion.
 - 12 dedicated desktop/Android-emulation browser journeys, including native templates, custom three-column XLSX, company multi-column XLSX/CSV, DOCX, corrections, duplicate management, interrupted-response recovery, approval, ordered Learning Path snapshots and reopening after source edits. The mobile harness includes a viewport tag and asserts its effective CSS viewport width.
 - Formatting, lint, TypeScript, production build and source/repository/build-artifact scans. npm audit has 27 moderate transitive advisories; no high/critical advisories. No forced dependency downgrades were applied.
