@@ -13,10 +13,10 @@ export async function initialize() {
     .filter((f) => f.endsWith(".sql"))
     .sort())
     await db.exec(await readFile("supabase/migrations/" + name, "utf8"));
-  for (const [i, name] of ["owner-a", "owner-b", "learner-a"].entries()) {
+  for (const [i, name] of ["owner-a", "owner-b", "learner-a", "editor-a"].entries()) {
     const user = `00000000-0000-4000-8000-00000000000${i + 1}`;
     await db.query("insert into auth.users values($1,now())", [user]);
-    identities[name] = { user, org: "", role: i === 2 ? "learner" : "owner" };
+    identities[name] = { user, org: "", role: i === 2 ? "learner" : i === 3 ? "editor" : "owner" };
     if (i < 2) {
       await db.exec("begin;set local role authenticated");
       await db.query("select set_config('request.jwt.claim.sub',$1,true)", [user]);
@@ -28,12 +28,14 @@ export async function initialize() {
       await db.exec("commit");
     }
   }
-  identities["learner-a"].org = identities["owner-a"].org;
-  await db.query("insert into public.memberships(organization_id,user_id,role)values($1,$2,$3)", [
-    identities["learner-a"].org,
-    identities["learner-a"].user,
-    "learner",
-  ]);
+  for (const name of ["learner-a", "editor-a"]) {
+    identities[name].org = identities["owner-a"].org;
+    await db.query("insert into public.memberships(organization_id,user_id,role)values($1,$2,$3)", [
+      identities[name].org,
+      identities[name].user,
+      identities[name].role,
+    ]);
+  }
 }
 export async function withIdentity<T>(name: string, work: () => Promise<T>): Promise<T> {
   let release!: () => void;
@@ -53,75 +55,168 @@ export async function withIdentity<T>(name: string, work: () => Promise<T>): Pro
     release();
   }
 }
+const rpcKeys: Record<string, string[]> = {
+  check_knowledge_import: ["org_id", "records"],
+  import_knowledge_records_v2: ["org_id", "request_id", "source_name", "records", "source_context"],
+  stage_gateway_upload: [
+    "org_id",
+    "source_name",
+    "source_digest",
+    "source_format",
+    "extraction",
+    "choices",
+  ],
+  check_gateway_duplicates: ["org_id", "candidates"],
+  save_gateway_review: ["org_id", "upload_id", "expected_revision", "choices", "rows"],
+  commit_gateway_upload: ["org_id", "upload_id", "expected_revision", "request_id"],
+  update_gateway_knowledge: ["org_id", "knowledge_id", "expected_version", "title", "fields"],
+  add_knowledge_to_learning_path: ["org_id", "course_id", "source_ids", "request_id"],
+  read_learning_path: ["org_id", "course_id"],
+};
+const tables = new Set([
+  "knowledge_items",
+  "knowledge_source_records",
+  "knowledge_versions",
+  "gateway_uploads",
+  "gateway_sources",
+  "courses",
+  "lessons",
+]);
+const quoted = (name: string) => {
+  if (!/^[a-z_]+$/.test(name)) throw Error("Unsafe fixture identifier");
+  return '"' + name + '"';
+};
+const bound = (value: unknown) =>
+  value !== null && typeof value === "object" ? JSON.stringify(value) : value;
+async function query(sql: string, args: unknown[] = []) {
+  await db.exec("savepoint fixture_query");
+  try {
+    const result = await db.query<Record<string, unknown>>(sql, args);
+    await db.exec("release savepoint fixture_query");
+    return { data: result.rows, error: null };
+  } catch (e) {
+    await db.exec("rollback to savepoint fixture_query");
+    return { data: null, error: { code: (e as { code?: string }).code } };
+  }
+}
+function from(table: string) {
+  if (!tables.has(table)) throw Error("Unexpected fixture table");
+  const filters: { key: string; value: unknown; op: string }[] = [];
+  let operation = "select",
+    changes: Record<string, unknown> = {},
+    selection = "*",
+    ordering = "",
+    maximum: number | undefined;
+  function execute() {
+    if (selection.includes("!inner"))
+      return query(
+        "select s.knowledge_id,s.fields,json_build_object('title',k.title,'body',k.body,'current_version',k.current_version,'status',k.status) knowledge_items from public.knowledge_source_records s join public.knowledge_items k on k.id=s.knowledge_id and k.organization_id=s.organization_id where s.organization_id=$1 and k.status='published' order by s.created_at limit 201",
+        [filters.find((f) => f.key === "organization_id")?.value],
+      );
+    const values: unknown[] = [];
+    const conditions = filters.map((f) =>
+      f.op === "is" && f.value === null
+        ? quoted(f.key) + " is null"
+        : (values.push(bound(f.value)), quoted(f.key) + f.op + "$" + values.length),
+    );
+    const where = conditions.length ? " where " + conditions.join(" and ") : "";
+    const columns = selection === "*" ? "*" : selection.split(",").map(quoted).join(",");
+    if (operation === "insert") {
+      const keys = Object.keys(changes);
+      return query(
+        `insert into public.${quoted(table)}(${keys.map(quoted).join(",")})values(${keys.map((_, i) => "$" + (i + 1)).join(",")}) returning ${columns}`,
+        keys.map((k) => bound(changes[k])),
+      );
+    }
+    if (operation === "update") {
+      const assignments = Object.keys(changes).map((k) => {
+        values.push(bound(changes[k]));
+        return quoted(k) + "=$" + values.length;
+      });
+      return query(
+        `update public.${quoted(table)} set ${assignments.join(",")}${where} returning ${columns}`,
+        values,
+      );
+    }
+    if (operation === "delete")
+      return query(`delete from public.${quoted(table)}${where} returning id`, values);
+    return query(
+      `select ${columns} from public.${quoted(table)}${where}${ordering}${maximum === undefined ? "" : " limit " + maximum}`,
+      values,
+    );
+  }
+  const chain = {
+    select: (value = "*") => {
+      selection = value;
+      return chain;
+    },
+    eq: (key: string, value: unknown) => {
+      filters.push({ key, value, op: "=" });
+      return chain;
+    },
+    gt: (key: string, value: unknown) => {
+      filters.push({ key, value, op: ">" });
+      return chain;
+    },
+    is: (key: string, value: unknown) => {
+      filters.push({ key, value, op: "is" });
+      return chain;
+    },
+    order: (key: string, options: { ascending?: boolean } = {}) => {
+      ordering = " order by " + quoted(key) + (options.ascending === false ? " desc" : " asc");
+      return chain;
+    },
+    limit: (n: number) => {
+      if (!Number.isInteger(n) || n < 0 || n > 1000) throw Error("Fixture limit");
+      maximum = n;
+      return chain;
+    },
+    insert: (data: Record<string, unknown>) => {
+      operation = "insert";
+      changes = data;
+      return chain;
+    },
+    update: (data: Record<string, unknown>) => {
+      operation = "update";
+      changes = data;
+      return chain;
+    },
+    delete: () => {
+      operation = "delete";
+      return chain;
+    },
+    maybeSingle: async () => {
+      const result = await execute();
+      return { ...result, data: result.data?.[0] ?? null };
+    },
+    single: async () => {
+      const result = await execute();
+      return {
+        ...result,
+        data: result.data?.[0] ?? null,
+        error: result.error ?? (result.data?.length === 1 ? null : { code: "PGRST116" }),
+      };
+    },
+    then: (
+      resolve: (v: Awaited<ReturnType<typeof execute>>) => unknown,
+      reject?: (e: unknown) => unknown,
+    ) => execute().then(resolve, reject),
+  };
+  return chain;
+}
 export async function requireWorkspace() {
   const identity = identities[context.getStore() ?? ""];
   if (!identity) throw Error("Fixture authentication required");
   const client = {
+    from,
     rpc: async (name: string, args: Record<string, unknown>) => {
-      await db.exec("savepoint rpc");
-      try {
-        if (!["check_knowledge_import", "import_knowledge_records_v2"].includes(name))
-          throw Error("Unexpected RPC");
-        const keys =
-          name === "check_knowledge_import"
-            ? ["org_id", "records"]
-            : ["org_id", "request_id", "source_name", "records", "source_context"];
-        const result = await db.query<{ result: unknown }>(
-          `select public.${name}(${keys.map((_, i) => "$" + (i + 1)).join(",")})result`,
-          keys.map((k) => (typeof args[k] === "object" ? JSON.stringify(args[k]) : args[k])),
-        );
-        await db.exec("release savepoint rpc");
-        return { data: result.rows[0].result, error: null };
-      } catch (e) {
-        await db.exec("rollback to savepoint rpc");
-        return { data: null, error: { code: (e as { code?: string }).code } };
-      }
-    },
-    from: (table: string) => {
-      const filters: Record<string, unknown> = {};
-      let changes: Record<string, unknown> | undefined;
-      const chain = {
-        select: () => chain,
-        eq: (k: string, v: unknown) => {
-          filters[k] = v;
-          return chain;
-        },
-        order: () => chain,
-        update: (v: Record<string, unknown>) => {
-          changes = v;
-          return chain;
-        },
-        maybeSingle: async () => {
-          if (table !== "knowledge_items" || !changes) throw Error("Unexpected fixture mutation");
-          try {
-            const result = await db.query(
-              "update public.knowledge_items set title=$1,body=$2,source_url=$3,status=$4 where id=$5 and organization_id=$6 and status=$7 and current_version=$8 returning id",
-              [
-                changes.title,
-                changes.body,
-                changes.source_url,
-                changes.status,
-                filters.id,
-                filters.organization_id,
-                filters.status,
-                filters.current_version,
-              ],
-            );
-            return { data: result.rows[0] ?? null, error: null };
-          } catch {
-            throw Error("Fixture mutation failed");
-          }
-        },
-        limit: async () => {
-          if (table !== "knowledge_source_records") throw Error("Unexpected fixture query");
-          const result = await db.query(
-            `select s.knowledge_id,s.fields,json_build_object('title',k.title,'body',k.body,'current_version',k.current_version,'status',k.status) knowledge_items from public.knowledge_source_records s join public.knowledge_items k on k.id=s.knowledge_id and k.organization_id=s.organization_id where s.organization_id=$1 and k.status='published' order by s.created_at limit 201`,
-            [filters.organization_id],
-          );
-          return { data: result.rows, error: null };
-        },
-      };
-      return chain;
+      const keys = rpcKeys[name];
+      if (!keys) throw Error("Unexpected fixture RPC");
+      const result = await query(
+        `select public.${name}(${keys.map((_, i) => "$" + (i + 1)).join(",")}) result`,
+        keys.map((k) => (k === "source_ids" ? args[k] : bound(args[k]))),
+      );
+      return { ...result, data: result.data?.[0]?.result ?? null };
     },
   };
   return {
@@ -134,7 +229,15 @@ export async function requireWorkspace() {
 export async function records() {
   return (
     await db.query(
-      "select id,title,body,source_url,status,current_version from public.knowledge_items order by created_at",
+      "select id,title,body,source_url,status,current_version,custom_fields from public.knowledge_items order by created_at",
     )
   ).rows;
+}
+export async function paths() {
+  return (
+    await db.query("select id,title,description,status from public.courses order by created_at")
+  ).rows;
+}
+export async function fixtureRole() {
+  return identities[context.getStore() ?? ""]?.role;
 }

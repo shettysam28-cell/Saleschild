@@ -53,7 +53,7 @@ export async function createCourse(_state: ActionState, form: FormData): Promise
   return {
     success: true,
     message:
-      "Your draft learning path is saved. Lesson authoring will be added in a future release.",
+      "Your draft learning path is saved. Open it to add approved knowledge as source-linked lessons.",
   };
 }
 export async function updateKnowledge(_state: ActionState, form: FormData): Promise<ActionState> {

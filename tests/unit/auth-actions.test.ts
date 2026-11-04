@@ -13,7 +13,10 @@ const { create, origin, requestOrigin, auth } = vi.hoisted(() => ({
   },
 }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: create }));
-vi.mock("@/lib/config", () => ({ appOrigin: origin }));
+vi.mock("@/lib/config", async (original) => ({
+  ...(await original<typeof import("@/lib/config")>()),
+  appOrigin: origin,
+}));
 vi.mock("next/headers", () => ({ headers: async () => ({ get: requestOrigin }) }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
@@ -95,4 +98,16 @@ describe("Supabase authentication action contracts (mocked provider)", () => {
     expect(auth.signOut).toHaveBeenCalledWith({ scope: "global" });
     await expect(signOutAction()).rejects.toThrow("redirect:/login");
   });
+});
+it("preserves an authorized Learning Path deep link after login", async () => {
+  const data = form();
+  data.set("next", "/app/learning/10000000-0000-4000-8000-000000000001?lesson=2");
+  await expect(loginAction({}, data)).rejects.toThrow(
+    "redirect:/app/learning/10000000-0000-4000-8000-000000000001?lesson=2",
+  );
+});
+it("rejects an external login return destination", async () => {
+  const data = form();
+  data.set("next", "//external.example/credentials");
+  await expect(loginAction({}, data)).rejects.toThrow("redirect:/app");
 });

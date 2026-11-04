@@ -3,6 +3,7 @@ const port = Number(process.env.PLAYWRIGHT_PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error("Choose a valid Playwright port.");
 export default defineConfig({
+  outputDir: "test-results/public",
   testDir: "./tests/e2e",
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,

@@ -27,7 +27,11 @@ export function AppNav() {
           <Link
             key={module.slug}
             href={`/app/${module.slug}`}
-            aria-current={path === `/app/${module.slug}` ? "page" : undefined}
+            aria-current={
+              path === `/app/${module.slug}` || path.startsWith(`/app/${module.slug}/`)
+                ? "page"
+                : undefined
+            }
           >
             <Icon size={16} />
             {module.title}

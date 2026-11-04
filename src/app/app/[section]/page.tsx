@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { BookOpen, GraduationCap, ClipboardCheck, Sparkles, Bell, ShieldCheck } from "lucide-react";
 import { requireWorkspace } from "@/lib/session";
 import { canAuthor, canAdmin } from "@/lib/permissions";
@@ -6,6 +7,9 @@ import { modules } from "@/lib/modules";
 import { WorkspaceForm } from "@/components/workspace-form";
 import { KnowledgeEditor } from "@/components/knowledge-editor";
 import { KnowledgeOnboarding } from "@/components/knowledge-onboarding";
+import { UniversalGateway } from "@/components/universal-gateway";
+import { GatewayRecordEditor } from "@/components/gateway-record-editor";
+import { listGatewayUploads } from "@/app/app/knowledge/gateway-actions";
 import { markNotificationRead } from "@/app/app/actions";
 function Empty({
   title,
@@ -28,7 +32,13 @@ function checked<T>({ data, error }: { data: T; error: unknown }): NonNullable<T
   if (error) throw new Error("Workspace data could not be loaded.");
   return (data ?? []) as NonNullable<T>;
 }
-export default async function ModulePage({ params }: { params: Promise<{ section: string }> }) {
+export default async function ModulePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ section: string }>;
+  searchParams: Promise<{ upload?: string }>;
+}) {
   const { section } = await params;
   const selectedModule = modules.find((m) => m.slug === section);
   if (!selectedModule) notFound();
@@ -40,14 +50,25 @@ export default async function ModulePage({ params }: { params: Promise<{ section
     const records = checked(
       await client
         .from("knowledge_items")
-        .select("id,title,body,source_url,status,current_version,evidence_status")
+        .select("id,title,body,source_url,status,current_version,evidence_status,custom_fields")
         .eq("organization_id", organization.id)
         .order("created_at", { ascending: false })
         .limit(50),
     );
     content = (
       <>
-        {author && <KnowledgeOnboarding admin={admin} />}
+        {author && (
+          <UniversalGateway
+            initialUploadId={(await searchParams).upload}
+            recent={await listGatewayUploads()}
+          />
+        )}
+        {author && (
+          <details className="workspace-card">
+            <summary>Optional source templates and Academy preview</summary>
+            <KnowledgeOnboarding admin={admin} />
+          </details>
+        )}
         {author && (
           <details className="workspace-card">
             <summary>Add a knowledge resource</summary>
@@ -57,14 +78,16 @@ export default async function ModulePage({ params }: { params: Promise<{ section
           </details>
         )}
         {records.length ? (
-          <div className="record-list">
+          <div className="record-list" aria-label="Saved knowledge">
             {records.map((record) => (
               <article className="record-card" key={record.id}>
                 <div>
-                  <h2>{record.title}</h2>
+                  <h2>
+                    <Link href={`/app/knowledge/${record.id}`}>{record.title}</Link>
+                  </h2>
                   <span className="record-badge">{record.status}</span>
                 </div>
-                <p>{record.body}</p>
+                <p className="knowledge-body">{record.body}</p>
                 <small>
                   Version {record.current_version} · Evidence: {record.evidence_status}
                   {record.source_url && (
@@ -77,9 +100,17 @@ export default async function ModulePage({ params }: { params: Promise<{ section
                     </>
                   )}
                 </small>
-                {author && record.status === "draft" && (
-                  <KnowledgeEditor record={record} publish={admin} />
-                )}
+                {author &&
+                  (record.status === "draft" || admin) &&
+                  (record.custom_fields.length ? (
+                    <GatewayRecordEditor
+                      key={`${record.id}:${record.current_version}`}
+                      record={record}
+                      admin={admin}
+                    />
+                  ) : (
+                    record.status === "draft" && <KnowledgeEditor record={record} publish={admin} />
+                  ))}
               </article>
             ))}
           </div>
@@ -107,8 +138,8 @@ export default async function ModulePage({ params }: { params: Promise<{ section
     content = (
       <>
         <div className="workspace-notice">
-          Learning path planning is available. Lesson authoring, assignments, and progress tracking
-          are being developed.
+          Plan a learning path and add approved knowledge as source-linked lessons. Assignments and
+          progress tracking are being developed.
         </div>
         {author && (
           <details className="workspace-card">
@@ -123,10 +154,15 @@ export default async function ModulePage({ params }: { params: Promise<{ section
             {records.map((record) => (
               <article className="record-card" key={record.id}>
                 <div>
-                  <h2>{record.title}</h2>
+                  <h2>
+                    <Link href={`/app/learning/${record.id}`}>{record.title}</Link>
+                  </h2>
                   <span className="record-badge">{record.status}</span>
                 </div>
                 <p>{record.description}</p>
+                <Link className="text-link" href={`/app/learning/${record.id}`}>
+                  Open learning path
+                </Link>
               </article>
             ))}
           </div>

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { appOrigin } from "@/lib/config";
+import { appOrigin, safeRedirect } from "@/lib/config";
 import { credentialsSchema, type ActionState } from "@/lib/validation";
 
 const unavailable: ActionState = {
@@ -31,7 +31,9 @@ export async function loginAction(_state: ActionState, form: FormData): Promise<
       error: true,
       message: "We couldn’t sign you in. Check your details and confirm your email.",
     };
-  redirect("/app");
+  redirect(
+    safeRedirect(typeof form.get("next") === "string" ? String(form.get("next")) : undefined),
+  );
 }
 export async function registerAction(_state: ActionState, form: FormData): Promise<ActionState> {
   const parsed = credentialsSchema.safeParse(Object.fromEntries(form));

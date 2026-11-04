@@ -1,0 +1,24 @@
+{
+  "before": {
+    "conditions": "Same shared executor, 200 fictional records, native ExcelJS file, five measured runs after warmup; parser work only, excludes network/database latency.",
+    "fileBytes": 19725,
+    "records": 200,
+    "parseCallsPerJourney": 3,
+    "medianMilliseconds": 183.6908759999999,
+    "runs": [
+      152.68930200000023, 154.8056389999997, 183.6908759999999, 197.4634739999999, 230.9419069999999
+    ]
+  },
+  "after": {
+    "conditions": "Same shared executor, 200 fictional records, native ExcelJS file, five measured runs after warmup; parser work only, excludes network/database latency. New path includes two deterministic review projections from one extraction.",
+    "fileBytes": 19725,
+    "records": 200,
+    "parseCallsPerJourney": 1,
+    "medianMilliseconds": 92.36427800000001,
+    "runs": [
+      80.047863, 81.55181100000004, 92.36427800000001, 92.59361200000012, 109.36737700000003
+    ],
+    "previousMedianMilliseconds": 183.6908759999999,
+    "medianReductionPercent": 50
+  }
+}

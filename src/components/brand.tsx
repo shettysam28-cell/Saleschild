@@ -1,8 +1,19 @@
 import Link from "next/link";
 
-export function Brand({ light = false }: { light?: boolean }) {
+export function Brand({
+  light = false,
+  href = "/home",
+}: {
+  light?: boolean;
+  href?: "/" | "/home" | "/app";
+}) {
   return (
-    <Link href="/" className={`brand ${light ? "brand-light" : ""}`} aria-label="Saleschild home">
+    <Link
+      href={href}
+      prefetch={false}
+      className={`brand ${light ? "brand-light" : ""}`}
+      aria-label="Saleschild home"
+    >
       <span className="brand-symbol" aria-hidden="true">
         <svg viewBox="0 0 32 32" fill="none">
           <path
