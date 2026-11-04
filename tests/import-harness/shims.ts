@@ -6,3 +6,6 @@ export function useRouter() {
     },
   };
 }
+export function usePathname() {
+  return window.location.pathname;
+}

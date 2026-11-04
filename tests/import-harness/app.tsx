@@ -1,9 +1,19 @@
+import { UniversalGateway } from "../../src/components/universal-gateway";
+import { GatewayRecordEditor } from "../../src/components/gateway-record-editor";
+import { KnowledgeRecordView } from "../../src/components/knowledge-record-view";
+import { LearningPathView } from "../../src/components/learning-path-view";
+import { WorkspaceForm } from "../../src/components/workspace-form";
+import { Brand } from "../../src/components/brand";
+import { AppNav } from "../../src/components/app-nav";
+import type { loadKnowledgeRecord } from "../../src/lib/knowledge/record";
+import type { loadLearningPath } from "../../src/lib/knowledge/learning";
+import type { EditableKnowledge } from "../../src/components/gateway-record-editor";
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { KnowledgeOnboarding } from "../../src/components/knowledge-onboarding";
 import { KnowledgeEditor } from "../../src/components/knowledge-editor";
 import "../../src/app/globals.css";
-function App() {
+function LegacyApp() {
   const [records, setRecords] = useState<
     Array<{
       id: string;
@@ -41,4 +51,128 @@ function App() {
     </main>
   );
 }
-createRoot(document.getElementById("root")!).render(<App />);
+
+function UniversalApp() {
+  const [records, setRecords] = useState<(EditableKnowledge & { source_url: string | null })[]>([]),
+    [paths, setPaths] = useState<{ id: string; title: string; description: string }[]>([]),
+    [recent, setRecent] = useState<{ id: string; source_name: string; expires_at: string }[]>([]);
+  const [role, setRole] = useState("learner");
+  const [record, setRecord] = useState<Awaited<ReturnType<typeof loadKnowledgeRecord>> | undefined>(
+      undefined,
+    ),
+    [path, setPath] = useState<Awaited<ReturnType<typeof loadLearningPath>> | undefined>(undefined);
+  const current = window.location.pathname,
+    recordId = /^\/app\/knowledge\/([\da-f-]+)$/.exec(current)?.[1],
+    pathId = /^\/app\/learning\/([\da-f-]+)$/.exec(current)?.[1];
+  useEffect(() => {
+    const get = (url: string) =>
+      fetch(url).then((r) => {
+        if (!r.ok) throw Error("Fixture read failed");
+        return r.json();
+      });
+    const load = () => {
+      void get("/me").then((data) => setRole(data.role));
+      if (recordId) void get("/record-data?id=" + recordId).then(setRecord);
+      else if (pathId) void get("/path-data?id=" + pathId).then(setPath);
+      else {
+        void get("/records").then(setRecords);
+        void get("/paths").then(setPaths);
+        void get("/recent-uploads").then(setRecent);
+      }
+    };
+    load();
+    window.addEventListener("fixture-refresh", load);
+    return () => window.removeEventListener("fixture-refresh", load);
+  }, [recordId, pathId]);
+  const author = ["owner", "admin", "editor"].includes(role),
+    admin = ["owner", "admin"].includes(role);
+  return (
+    <div className="app-shell">
+      <aside className="app-sidebar">
+        <Brand href="/app" />
+        <div className="org-label">
+          Fictional organization<small>Local isolated integration fixture</small>
+        </div>
+        <AppNav />
+      </aside>
+      <div className="app-main">
+        <header className="app-topbar">
+          Synthetic verified-account fixture · real local SQL/RLS · no hosted Auth claim
+        </header>
+        <main id="main" className="app-content">
+          {recordId ? (
+            record === undefined ? (
+              <p>Loading resource…</p>
+            ) : record ? (
+              <KnowledgeRecordView data={record} />
+            ) : (
+              <p role="alert">Resource not available.</p>
+            )
+          ) : pathId ? (
+            path === undefined ? (
+              <p>Loading path…</p>
+            ) : path ? (
+              <LearningPathView data={path} />
+            ) : (
+              <p role="alert">Learning path not available.</p>
+            )
+          ) : current === "/app/learning" ? (
+            <>
+              <h1>Learning Paths</h1>
+              {author && <WorkspaceForm kind="learning" />}
+              <div aria-label="Learning Paths">
+                {paths.map((p) => (
+                  <article key={p.id} className="record-card">
+                    <h2>{p.title}</h2>
+                    <p>{p.description}</p>
+                    <a href={"/app/learning/" + p.id}>Open learning path</a>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <h1>{current === "/app" ? "Your workspace" : "Knowledge Gateway"}</h1>
+              {author && <UniversalGateway recent={recent} />}
+              <div aria-label="Saved knowledge">
+                {records.map((r) => (
+                  <article key={r.id} className="record-card">
+                    <h2>
+                      <a href={"/app/knowledge/" + r.id}>{r.title}</a>
+                    </h2>
+                    <p className="knowledge-body">{r.body}</p>
+                    <span>{r.status}</span>
+                    {author &&
+                      (r.status === "draft" || admin) &&
+                      (r.custom_fields.length ? (
+                        <GatewayRecordEditor
+                          key={r.id + ":" + r.current_version}
+                          record={r}
+                          admin={admin}
+                        />
+                      ) : (
+                        r.status === "draft" && <KnowledgeEditor record={r} publish={admin} />
+                      ))}
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+const current = window.location.pathname;
+createRoot(document.getElementById("root")!).render(
+  current === "/" ? (
+    <LegacyApp />
+  ) : current === "/marketing" ? (
+    <main>
+      <Brand />
+      <h1>Marketing navigation fixture</h1>
+    </main>
+  ) : (
+    <UniversalApp />
+  ),
+);

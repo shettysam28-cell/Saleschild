@@ -115,7 +115,7 @@ describe("actual Phase 0 migration: organization and role isolation", () => {
     const { rows } = await db.query<{ name: string; rls: boolean }>(
       "select relname as name,relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'",
     );
-    expect(rows.length).toBe(14);
+    expect(rows.length).toBe(17);
     expect(rows.every((r) => r.rls)).toBe(true);
   });
   it("atomically creates an owner and welcome notification", async () => {
@@ -713,5 +713,553 @@ describe("spreadsheet v2 provenance and duplicate identity", () => {
         )
       ).rows,
     ).toEqual([]);
+  });
+});
+
+describe("Universal Gateway and existing Learning Paths (real migrations and RLS)", () => {
+  const fields = [
+    { id: "c1", label: "Item", value: "Fictional equipment check" },
+    { id: "c2", label: "Team", value: "Operations" },
+    {
+      id: "c3",
+      label: "Local instruction",
+      value: "Inspect the fictional safety indicator before starting the training device.",
+    },
+  ];
+  let uploadId: string, knowledgeId: string, otherKnowledgeId: string, pathId: string;
+  const request = "30000000-0000-4000-8000-000000000001";
+  async function stage(
+    values = fields,
+    options: { title?: string; confirmed?: boolean; edit?: string; rows?: number } = {},
+  ) {
+    const name = "fictional-source-" + crypto.randomUUID() + ".csv";
+    const extraction = {
+      name,
+      format: "csv",
+      warnings: [],
+      sheets: [
+        {
+          name: "CSV",
+          rows: [
+            { row: 1, cells: values.map((f) => f.label) },
+            ...Array.from({ length: options.rows ?? 1 }, (_, i) => ({
+              row: i + 2,
+              cells: values.map((f) => (i === 0 ? f.value : f.value + " additional " + i)),
+            })),
+          ],
+        },
+      ],
+    };
+    const choices = { sheet: 0, headerRow: 1, titleColumn: "", labels: [], edits: {} };
+    const id = (
+      await asUser(users.a, () =>
+        db.query<{ id: string }>("select public.stage_gateway_upload($1,$2,$3,'csv',$4,$5) id", [
+          orgA,
+          name,
+          "a".repeat(64),
+          JSON.stringify(extraction),
+          JSON.stringify(choices),
+        ]),
+      )
+    ).rows[0].id;
+    const rows = extraction.sheets[0].rows.slice(1).map((r) => ({
+      key: "0:" + r.row,
+      row: r.row,
+      title: options.title ?? r.cells[0],
+      fields: values.map((f, i) => ({
+        ...f,
+        value: options.edit && i === 2 ? options.edit : r.cells[i],
+      })),
+      excluded: false,
+      confirmed: options.confirmed ?? false,
+      errors: [],
+      exact: [],
+      possible: [],
+    }));
+    await asUser(users.a, () =>
+      db.query("select public.save_gateway_review($1,$2,0,$3,$4)", [
+        orgA,
+        id,
+        JSON.stringify(choices),
+        JSON.stringify(rows),
+      ]),
+    );
+    return { id, rows, choices };
+  }
+  async function commit(id: string, requestId = crypto.randomUUID()) {
+    return (
+      await asUser(users.a, () =>
+        db.query<{ ids: string[] }>("select public.commit_gateway_upload($1,$2,1,$3) ids", [
+          orgA,
+          id,
+          requestId,
+        ]),
+      )
+    ).rows[0].ids;
+  }
+  it("denies anonymous and learner entry points", async () => {
+    await expect(asAnon(() => db.query("select * from public.gateway_uploads"))).rejects.toThrow(
+      /permission denied/,
+    );
+    await expect(
+      asAnon(() => db.query("select public.check_gateway_duplicates($1,'[]')", [orgA])),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      asUser(users.learner, () =>
+        db.query("select public.stage_gateway_upload($1,'fake.csv',$2,'csv','{}','{}')", [
+          orgA,
+          "a".repeat(64),
+        ]),
+      ),
+    ).rejects.toThrow(/Author access/);
+  });
+  it("stages extraction privately without creating knowledge", async () => {
+    const before = (
+      await db.query<{ n: number }>("select count(*)::int n from public.knowledge_items")
+    ).rows[0].n;
+    const staged = await stage();
+    uploadId = staged.id;
+    expect(
+      (await db.query<{ n: number }>("select count(*)::int n from public.knowledge_items")).rows[0]
+        .n,
+    ).toBe(before);
+    expect(
+      (
+        await asUser(users.b, () =>
+          db.query("select id from public.gateway_uploads where id=$1", [uploadId]),
+        )
+      ).rows,
+    ).toHaveLength(0);
+    expect(
+      (
+        await asUser(users.editor, () =>
+          db.query("select id from public.gateway_uploads where id=$1", [uploadId]),
+        )
+      ).rows,
+    ).toHaveLength(0);
+  });
+  it("atomically saves custom fields, original provenance and a version snapshot", async () => {
+    const ids = await commit(uploadId, request);
+    expect(ids).toHaveLength(1);
+    knowledgeId = ids[0];
+    const record = (
+      await asUser(users.a, () =>
+        db.query<{ status: string; custom_fields: unknown; body: string; current_version: number }>(
+          "select status,custom_fields,body,current_version from public.knowledge_items where id=$1",
+          [knowledgeId],
+        ),
+      )
+    ).rows[0];
+    expect(record).toMatchObject({ status: "draft", custom_fields: fields, current_version: 1 });
+    expect(record.body).toContain("Local instruction: Inspect");
+    const source = (
+      await asUser(users.a, () =>
+        db.query<{ origin: { row: number; headerRow: number }; original_fields: unknown }>(
+          "select origin,original_fields from public.gateway_sources where knowledge_id=$1",
+          [knowledgeId],
+        ),
+      )
+    ).rows[0];
+    expect(source.origin).toMatchObject({ row: 2, headerRow: 1, worksheet: "CSV", format: "csv" });
+    expect(source.original_fields).toEqual(fields);
+    expect(
+      (
+        await asUser(users.a, () =>
+          db.query<{ custom_fields: unknown }>(
+            "select custom_fields from public.knowledge_versions where knowledge_id=$1 and version=1",
+            [knowledgeId],
+          ),
+        )
+      ).rows[0].custom_fields,
+    ).toEqual(fields);
+  });
+  it("replays a lost-response save without creating duplicate drafts", async () => {
+    expect(await commit(uploadId, request)).toEqual([knowledgeId]);
+    expect(
+      (
+        await db.query<{ n: number }>(
+          "select count(*)::int n from public.gateway_sources where upload_id=$1",
+          [uploadId],
+        )
+      ).rows[0].n,
+    ).toBe(1);
+    await expect(commit(uploadId)).rejects.toThrow(/already saved/);
+  });
+  it("rolls back a whole batch containing an exact duplicate", async () => {
+    const staged = await stage();
+    const newFields = fields.map((f) => ({ ...f, value: f.value + " novel" }));
+    const rows = [
+      { ...staged.rows[0], row: 3, key: "0:3", title: "A new candidate", fields: newFields },
+      staged.rows[0],
+    ];
+    // A valid second source row is required; malformed provenance also fails atomically.
+    const prior = (
+      await db.query<{ n: number }>("select count(*)::int n from public.knowledge_items")
+    ).rows[0].n;
+    await asUser(users.a, () =>
+      db.query("select public.save_gateway_review($1,$2,1,$3,$4)", [
+        orgA,
+        staged.id,
+        JSON.stringify(staged.choices),
+        JSON.stringify([staged.rows[0], ...rows]),
+      ]),
+    );
+    await expect(
+      asUser(users.a, () =>
+        db.query("select public.commit_gateway_upload($1,$2,2,$3)", [
+          orgA,
+          staged.id,
+          crypto.randomUUID(),
+        ]),
+      ),
+    ).rejects.toThrow();
+    expect(
+      (await db.query<{ n: number }>("select count(*)::int n from public.knowledge_items")).rows[0]
+        .n,
+    ).toBe(prior);
+    await asUser(users.a, () =>
+      db.query("delete from public.gateway_uploads where id=$1", [staged.id]),
+    );
+  });
+  it("checks exact duplicates using the full field set, independently of column ordering", async () => {
+    const found = (
+      await asUser(users.a, () =>
+        db.query<{ result: { key: string; exact: { id: string }[] }[] }>(
+          "select public.check_gateway_duplicates($1,$2)result",
+          [
+            orgA,
+            JSON.stringify([{ key: "new", title: "Any title", fields: [...fields].reverse() }]),
+          ],
+        ),
+      )
+    ).rows[0].result;
+    expect(found[0].exact[0].id).toBe(knowledgeId);
+    const staged = await stage();
+    await expect(commit(staged.id)).rejects.toThrow(/Exact duplicate/);
+    await asUser(users.a, () =>
+      db.query("delete from public.gateway_uploads where id=$1", [staged.id]),
+    );
+  });
+  it("requires review of possible duplicates while allowing distinct facts sharing a title", async () => {
+    const different = fields.map((f) =>
+      f.id === "c3"
+        ? {
+            ...f,
+            value:
+              "A second independently useful fictional instruction describing the shutdown process.",
+          }
+        : f,
+    );
+    const staged = await stage(different);
+    await expect(commit(staged.id)).rejects.toThrow(/Inspect possible/);
+    staged.rows[0].confirmed = true;
+    await asUser(users.a, () =>
+      db.query("select public.save_gateway_review($1,$2,1,$3,$4)", [
+        orgA,
+        staged.id,
+        JSON.stringify(staged.choices),
+        JSON.stringify(staged.rows),
+      ]),
+    );
+    otherKnowledgeId = (
+      await asUser(users.a, () =>
+        db.query<{ ids: string[] }>("select public.commit_gateway_upload($1,$2,2,$3) ids", [
+          orgA,
+          staged.id,
+          crypto.randomUUID(),
+        ]),
+      )
+    ).rows[0].ids[0];
+    expect(otherKnowledgeId).not.toBe(knowledgeId);
+  });
+  it("rejects cross-tenant saves, review edits and malformed mappings/provenance", async () => {
+    await expect(
+      asUser(users.b, () =>
+        db.query("select public.commit_gateway_upload($1,$2,1,$3)", [orgA, uploadId, request]),
+      ),
+    ).rejects.toThrow(/Author access/);
+    await expect(
+      asUser(users.b, () =>
+        db.query("select public.save_gateway_review($1,$2,1,'{}','[]')", [orgA, uploadId]),
+      ),
+    ).rejects.toThrow(/Author access/);
+    const staged = await stage(fields, {
+      title: "A corrected independent source",
+      edit: "A fictional source that has not previously been imported into this organization.",
+    });
+    staged.rows[0].row = 999;
+    await asUser(users.a, () =>
+      db.query("select public.save_gateway_review($1,$2,1,$3,$4)", [
+        orgA,
+        staged.id,
+        JSON.stringify(staged.choices),
+        JSON.stringify(staged.rows),
+      ]),
+    );
+    await expect(
+      asUser(users.a, () =>
+        db.query("select public.commit_gateway_upload($1,$2,2,$3)", [
+          orgA,
+          staged.id,
+          crypto.randomUUID(),
+        ]),
+      ),
+    ).rejects.toThrow(/Invalid reviewed record/);
+    await asUser(users.a, () =>
+      db.query("delete from public.gateway_uploads where id=$1", [staged.id]),
+    );
+  });
+  it("preserves original fields and old versions when live edits create a draft", async () => {
+    const revised = fields.map((f) =>
+      f.id === "c3"
+        ? {
+            ...f,
+            value:
+              "A reviewed fictional instruction with an amended setup step and a second safety check.",
+          }
+        : f,
+    );
+    expect(
+      (
+        await asUser(users.a, () =>
+          db.query<{ v: number }>("select public.update_gateway_knowledge($1,$2,1,$3,$4)v", [
+            orgA,
+            knowledgeId,
+            "Fictional setup revised",
+            JSON.stringify(revised),
+          ]),
+        )
+      ).rows[0].v,
+    ).toBe(2);
+    expect(
+      (
+        await asUser(users.a, () =>
+          db.query<{ custom_fields: unknown }>(
+            "select custom_fields from public.knowledge_versions where knowledge_id=$1 and version=1",
+            [knowledgeId],
+          ),
+        )
+      ).rows[0].custom_fields,
+    ).toEqual(fields);
+    expect(
+      (
+        await asUser(users.a, () =>
+          db.query<{ original_fields: unknown }>(
+            "select original_fields from public.gateway_sources where knowledge_id=$1",
+            [knowledgeId],
+          ),
+        )
+      ).rows[0].original_fields,
+    ).toEqual(fields);
+    await expect(
+      asUser(users.a, () =>
+        db.query("select public.update_gateway_knowledge($1,$2,1,$3,$4)", [
+          orgA,
+          knowledgeId,
+          "Stale title",
+          JSON.stringify(fields),
+        ]),
+      ),
+    ).rejects.toThrow(/Record changed/);
+  });
+  it("denies editor publication and unapproved learning sources without partial lessons", async () => {
+    await expect(
+      asUser(users.editor, () =>
+        db.query("update public.knowledge_items set status='published' where id=$1", [knowledgeId]),
+      ),
+    ).rejects.toThrow(/row-level security/);
+    pathId = (
+      await asUser(users.a, () =>
+        db.query<{ id: string }>(
+          "insert into public.courses(organization_id,title,description,created_by)values($1,'Existing Learning Path','A fictional path for source-linked learning acceptance.',$2)returning id",
+          [orgA, users.a],
+        ),
+      )
+    ).rows[0].id;
+    await expect(
+      asUser(users.a, () =>
+        db.query("select public.add_knowledge_to_learning_path($1,$2,$3,$4)", [
+          orgA,
+          pathId,
+          [knowledgeA, knowledgeId],
+          crypto.randomUUID(),
+        ]),
+      ),
+    ).rejects.toThrow(/Every source must be approved/);
+    expect(
+      (await db.query("select id from public.lessons where course_id=$1", [pathId])).rows,
+    ).toHaveLength(0);
+    expect(
+      (
+        await db.query("select id from public.learning_path_source_batches where course_id=$1", [
+          pathId,
+        ])
+      ).rows,
+    ).toHaveLength(0);
+  });
+  const pathRequest = "30000000-0000-4000-8000-000000000003";
+  it("adds approved sources to an existing path in explicit order with idempotent retry", async () => {
+    await asUser(users.a, () =>
+      db.query("update public.knowledge_items set status='published' where id=any($1)", [
+        [knowledgeId, otherKnowledgeId],
+      ]),
+    );
+    for (let i = 0; i < 2; i++)
+      expect(
+        (
+          await asUser(users.a, () =>
+            db.query<{ n: number }>("select public.add_knowledge_to_learning_path($1,$2,$3,$4)n", [
+              orgA,
+              pathId,
+              [otherKnowledgeId, knowledgeId],
+              pathRequest,
+            ]),
+          )
+        ).rows[0].n,
+      ).toBe(2);
+    const lessons = (
+      await asUser(users.a, () =>
+        db.query<{
+          source_knowledge_id: string;
+          source_version: number;
+          position: number;
+          body: string;
+        }>(
+          "select source_knowledge_id,source_version,position,body from public.lessons where course_id=$1 order by position",
+          [pathId],
+        ),
+      )
+    ).rows;
+    expect(lessons.map((l) => l.source_knowledge_id)).toEqual([otherKnowledgeId, knowledgeId]);
+    expect(lessons.map((l) => l.position)).toEqual([0, 1]);
+    expect(lessons[1].source_version).toBe(3);
+    expect(lessons[1].body).toContain("Local instruction:");
+  });
+  it("reopens persisted path content and custom fields after later source edits", async () => {
+    const changed = fields.map((f) => ({ ...f, value: f.value + " subsequently changed" }));
+    await asUser(users.a, () =>
+      db.query("select public.update_gateway_knowledge($1,$2,3,'New draft revision',$3)", [
+        orgA,
+        knowledgeId,
+        JSON.stringify(changed),
+      ]),
+    );
+    const data = (
+      await asUser(users.a, () =>
+        db.query<{
+          result: { lessons: { source_version: number; source_fields: unknown; body: string }[] };
+        }>("select public.read_learning_path($1,$2) result", [orgA, pathId]),
+      )
+    ).rows[0].result;
+    expect(data.lessons).toHaveLength(2);
+    expect(data.lessons[1].source_version).toBe(3);
+    expect(data.lessons[1].body).toContain("amended setup step");
+    expect(data.lessons[1].body).not.toContain("subsequently changed");
+    expect(data.lessons[1].source_fields).not.toEqual(changed);
+  });
+  it("enforces path and source tenant isolation for reads and writes", async () => {
+    await expect(
+      asUser(users.b, () => db.query("select public.read_learning_path($1,$2)", [orgA, pathId])),
+    ).rejects.toThrow(/Organization access/);
+    expect(
+      (
+        await asUser(users.b, () =>
+          db.query("select id from public.lessons where course_id=$1", [pathId]),
+        )
+      ).rows,
+    ).toHaveLength(0);
+    await expect(
+      asUser(users.b, () =>
+        db.query("select public.add_knowledge_to_learning_path($1,$2,$3,$4)", [
+          orgB,
+          pathId,
+          [knowledgeA],
+          crypto.randomUUID(),
+        ]),
+      ),
+    ).rejects.toThrow(/Learning path not found/);
+    expect(
+      (
+        await asUser(users.b, () =>
+          db.query("select id from public.gateway_sources where knowledge_id=$1", [knowledgeId]),
+        )
+      ).rows,
+    ).toHaveLength(0);
+    await expect(
+      asUser(users.learner, () =>
+        db.query("select public.add_knowledge_to_learning_path($1,$2,$3,$4)", [
+          orgA,
+          pathId,
+          [knowledgeA],
+          crypto.randomUUID(),
+        ]),
+      ),
+    ).rejects.toThrow(/Author access/);
+  });
+  it("keeps source and historical field snapshots immutable", async () => {
+    await expect(
+      asUser(users.a, () =>
+        db.query("update public.gateway_sources set original_fields='[]' where knowledge_id=$1", [
+          knowledgeId,
+        ]),
+      ),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      asUser(users.a, () =>
+        db.query("update public.knowledge_versions set custom_fields='[]' where knowledge_id=$1", [
+          knowledgeId,
+        ]),
+      ),
+    ).rejects.toThrow(/permission denied/);
+  });
+  it("rejects direct edits that forge an approved lesson snapshot", async () => {
+    await expect(
+      asUser(users.a, () =>
+        db.query(
+          "update public.lessons set body='An unreviewed replacement for approved source content.' where course_id=$1",
+          [pathId],
+        ),
+      ),
+    ).rejects.toThrow(/Lessons must match an approved source version/);
+    expect(
+      (await db.query("select id from public.lessons where course_id=$1", [pathId])).rows,
+    ).toHaveLength(2);
+  });
+  it("rejects direct lesson insertion referencing an unapproved source version", async () => {
+    const current = (
+      await asUser(users.a, () =>
+        db.query<{ title: string; body: string; current_version: number }>(
+          "select title,body,current_version from public.knowledge_items where id=$1",
+          [knowledgeId],
+        ),
+      )
+    ).rows[0];
+    await expect(
+      asUser(users.a, () =>
+        db.query(
+          "insert into public.lessons(organization_id,course_id,title,body,position,source_knowledge_id,source_version)values($1,$2,$3,$4,99,$5,$6)",
+          [orgA, pathId, current.title, current.body, knowledgeId, current.current_version],
+        ),
+      ),
+    ).rejects.toThrow(/Lessons must match an approved source version/);
+  });
+  it("keeps every new public RPC invoker-only and unavailable to anonymous callers", async () => {
+    const names = [
+      "stage_gateway_upload",
+      "check_gateway_duplicates",
+      "save_gateway_review",
+      "commit_gateway_upload",
+      "update_gateway_knowledge",
+      "add_knowledge_to_learning_path",
+      "read_learning_path",
+    ];
+    const functions = (
+      await db.query<{ prosecdef: boolean; anonymous: boolean }>(
+        "select prosecdef,has_function_privilege('anon',p.oid,'execute') anonymous from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and proname=any($1)",
+        [names],
+      )
+    ).rows;
+    expect(functions).toHaveLength(names.length);
+    expect(functions.every((f) => !f.prosecdef && !f.anonymous)).toBe(true);
   });
 });

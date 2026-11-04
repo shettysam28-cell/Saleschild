@@ -11,7 +11,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
-        <Brand />
+        <Brand href="/app" />
         <div className="org-label">
           {organization.name}
           <small>{role} workspace</small>

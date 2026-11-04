@@ -9,10 +9,19 @@ const modes = {
   forgot: { action: forgotAction, button: "Send reset link" },
   reset: { action: resetAction, button: "Set new password" },
 };
-export function AuthForm({ mode, available }: { mode: keyof typeof modes; available: boolean }) {
+export function AuthForm({
+  mode,
+  available,
+  next,
+}: {
+  mode: keyof typeof modes;
+  available: boolean;
+  next?: string;
+}) {
   const [state, action, pending] = useActionState(modes[mode].action, {});
   return (
     <form action={action} className="auth-form">
+      {mode === "login" && <input type="hidden" name="next" value={next ?? "/app"} />}
       {mode !== "reset" && (
         <label className="form-field">
           Work email

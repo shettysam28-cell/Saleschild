@@ -21,7 +21,7 @@ export async function proxy(request: NextRequest) {
     });
   let response = NextResponse.next({ request });
   const privatePath =
-    /^\/(app(?:\/|$)|onboarding|auth(?:\/|$)|login|register|forgot-password|reset-password)/.test(
+    /^\/(app(?:\/|$)|home$|onboarding|auth(?:\/|$)|login|register|forgot-password|reset-password)/.test(
       path,
     );
   if (!privatePath) return response;
@@ -56,7 +56,9 @@ export async function proxy(request: NextRequest) {
   });
   const { data, error } = await client.auth.getClaims();
   if ((error || !data?.claims) && (/^\/app(?:\/|$)/.test(path) || path === "/onboarding")) {
-    const redirect = NextResponse.redirect(new URL("/login", request.url));
+    const login = new URL("/login", request.url);
+    login.searchParams.set("next", path + request.nextUrl.search);
+    const redirect = NextResponse.redirect(login);
     response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
     for (const header of ["cache-control", "expires", "pragma", "x-robots-tag"]) {
       const value = response.headers.get(header);

@@ -23,7 +23,15 @@ const content = {
     description: "Choose a new password for your account.",
   },
 };
-export function AuthPage({ mode, notice }: { mode: keyof typeof content; notice?: string }) {
+export function AuthPage({
+  mode,
+  notice,
+  next,
+}: {
+  mode: keyof typeof content;
+  notice?: string;
+  next?: string;
+}) {
   const info = content[mode];
   const available = !!supabaseConfig() && !!appOrigin();
   return (
@@ -50,7 +58,7 @@ export function AuthPage({ mode, notice }: { mode: keyof typeof content; notice?
           This link is invalid or has expired. Request a new one.
         </div>
       )}
-      <AuthForm mode={mode} available={available} />
+      <AuthForm mode={mode} available={available} next={next} />
       <div className="auth-switch">
         {mode === "login" ? (
           <>
