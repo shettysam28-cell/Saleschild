@@ -1,13 +1,39 @@
 import { columns, type Column, type SourceRecord } from "./templates";
+import { fail } from "./diagnostics";
+export const requiredColumns: Column[] = ["Topic", "Category", "Knowledge Content"];
+export function suggestMappings(headers: string[]) {
+  const key = (s: string) => normalize(s).replace(/[^a-z0-9]/g, "");
+  const aliases: Partial<Record<Column, string[]>> = {
+    Topic: ["title", "subject"],
+    Category: ["group", "department"],
+    "Knowledge Content": ["content", "body", "description"],
+    "Source Reference": ["source", "reference"],
+  };
+  return Object.fromEntries(
+    columns.map((c) => [
+      c,
+      headers.find((h) => key(h) === key(c) || aliases[c]?.includes(key(h))) ?? "",
+    ]),
+  ) as Partial<Record<Column, string>>;
+}
 export const MAX_ROWS = 200;
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 export const normalize = (value: string) => value.trim().replace(/\s+/gu, " ").toLowerCase();
 export const recordKey = (r: SourceRecord) =>
   [r.Category, r.Topic, r.Subtopic].map(normalize).join("\u001f");
 export const recordContent = (r: SourceRecord) =>
-  columns.map((c) => normalize(r[c])).join("\u001f");
+  columns
+    .map((c) =>
+      ["Topic", "Category", "Subtopic"].includes(c)
+        ? normalize(r[c])
+        : r[c].trim().normalize("NFC"),
+    )
+    .join("\u001f");
 export const unsafeCell = (v: string) =>
-  /^[\s\uFEFF]*[=+@\-\t\r]/u.test(v) || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(v);
+  (/^[\s\uFEFF]*[=+@\-]/u.test(v) &&
+    !/^\s*[+-]?[$€£¥]?\d[\d,]*(?:\.\d+)?%?\s*$/u.test(v) &&
+    (!/^\s*-\s+\p{L}/u.test(v) || /^\s*-\s*[A-Za-z._]+\s*\(/u.test(v))) ||
+  /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(v);
 export type ExistingSource = { fields: SourceRecord; knowledge_id: string };
 export type Readiness = ReturnType<typeof assessReadiness>;
 export function mapRecords(
@@ -19,13 +45,19 @@ export function mapRecords(
     throw new Error("Use between 1 and 200 knowledge records.");
   const selected = Object.values(mapping).filter(Boolean);
   if (new Set(selected).size !== selected.length)
-    throw new Error("Map each source column only once.");
+    fail("MAPPING", "Map each source column only once.");
+  for (const c of requiredColumns)
+    if (!mapping[c] || !headers.includes(mapping[c]!))
+      fail("MAPPING", `Map the required ${c} field to an existing source column.`, { column: c });
+  for (const c of columns)
+    if (mapping[c] && !headers.includes(mapping[c]!))
+      fail("MAPPING", `The selected source column for ${c} does not exist.`, { column: c });
   return rows.map(
     (row) =>
       Object.fromEntries(
         columns.map((c) => {
           const index = headers.indexOf(mapping[c] ?? "");
-          return [c, index < 0 ? "" : (row[index] ?? "").trim()];
+          return [c, index < 0 ? "" : (row[index] ?? "").trim().normalize("NFC")];
         }),
       ) as SourceRecord,
   );
@@ -34,9 +66,14 @@ export function assessReadiness(
   records: SourceRecord[],
   existing: ExistingSource[] = [],
   today = new Date().toISOString().slice(0, 10),
+  rowNumbers?: number[],
+  purpose: "import" | "academy" = "import",
 ) {
-  const seen = new Map<string, string>();
-  for (const e of existing) seen.set(recordKey(e.fields), recordContent(e.fields));
+  const seen = new Map<string, string[]>();
+  for (const e of existing) {
+    const k = recordKey(e.fields);
+    seen.set(k, [...(seen.get(k) ?? []), recordContent(e.fields)]);
+  }
   const issues = records.map((r, i) => {
     const errors: string[] = [],
       warnings: string[] = [];
@@ -85,18 +122,18 @@ export function assessReadiness(
     const key = recordKey(r),
       content = recordContent(r),
       previous = seen.get(key);
-    const duplicate = previous === content,
-      conflict = previous !== undefined && previous !== content;
+    const duplicate = previous?.includes(content) ?? false,
+      conflict = previous !== undefined && !duplicate;
     if (duplicate)
       errors.push(
         "Potential duplicate: this category, topic and subtopic already have the same record.",
       );
-    if (conflict)
-      errors.push(
-        "Conflicting record: this category, topic and subtopic have different content. Review the existing source before importing.",
+    if (conflict && purpose === "import")
+      warnings.push(
+        "Similar topic with different content: review these facts together. They may be imported as separate drafts; no existing record will be overwritten.",
       );
-    seen.set(key, content);
-    return { row: i + 2, errors, warnings, duplicate, conflict };
+    seen.set(key, [...(previous ?? []), content]);
+    return { row: rowNumbers?.[i] ?? i + 2, errors, warnings, duplicate, conflict };
   });
   return {
     total: records.length,
@@ -145,4 +182,9 @@ export function curriculumPreview(sources: CurriculumSource[]) {
         version: s.version,
       })),
   }));
+}
+
+export function assessAcademyReadiness(records: SourceRecord[]) {
+  const result = assessReadiness(records, [], undefined, undefined, "academy");
+  return { ...result, ready: result.ready && result.review === 0 };
 }
