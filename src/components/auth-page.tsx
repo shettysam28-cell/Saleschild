@@ -10,7 +10,7 @@ const content = {
   register: {
     eyebrow: "LET’S GROW SOMETHING GREAT",
     title: "It starts with you.",
-    description: "Create your account. Then make a home for your team.",
+    description: "Create your organization owner account. Members receive access from their owner.",
   },
   forgot: {
     eyebrow: "A FRESH START",
@@ -53,6 +53,18 @@ export function AuthPage({
           Your password has been updated. Log in with your new password.
         </div>
       )}
+      {notice === "member-setup-complete" && (
+        <div className="form-message" role="status">
+          Your password and member setup are complete. Sign in with your new password to open your
+          learning workspace.
+        </div>
+      )}
+      {notice === "fresh-login-required" && (
+        <div className="form-message" role="status">
+          For your security, sign in again with your current password. Previous sessions cannot
+          access your organization.
+        </div>
+      )}
       {notice === "invalid-link" && (
         <div className="form-message" data-error="true" role="alert">
           This link is invalid or has expired. Request a new one.
@@ -62,7 +74,7 @@ export function AuthPage({
       <div className="auth-switch">
         {mode === "login" ? (
           <>
-            New to Saleschild? <Link href="/register">Start growing</Link>
+            Creating an organization? <Link href="/register">Register as an owner</Link>
           </>
         ) : mode === "register" ? (
           <>

@@ -20,6 +20,17 @@ export const discardGatewayUpload = (id: string) => send("gateway-discard", payl
 export const updateGatewayKnowledge = (input: unknown) => send("gateway-edit", payload(input));
 export const approveGatewayKnowledge = (input: unknown) => send("gateway-approve", payload(input));
 export const addApprovedKnowledge = (input: unknown) => send("path-add", payload(input));
+export const publishLearningRevision = (input: unknown) => send("learning-publish", payload(input));
+export const beginLearningRevision = (input: unknown) => send("learning-draft", payload(input));
+export const recordLearningProgress = (input: unknown) => send("learning-progress", payload(input));
+export const fetchKnowledge = (input: unknown) => send("knowledge-fetch", payload(input));
+export const discardDraftGroup = (input: unknown) => send("draft-discard", payload(input));
+export async function signOutAction() {
+  await fetch("/fixture/logout", { method: "POST" });
+  // This isolated Vite fixture has no Next router. Production uses the real Auth action.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  window.location.assign("/marketing");
+}
 export const createCourse = async (_state: unknown, form: FormData) => {
   const result = await send("course-create", form);
   if (result.success) window.dispatchEvent(new Event("fixture-refresh"));

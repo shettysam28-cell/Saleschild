@@ -32,6 +32,22 @@ const vite = await createServer({
         find: "@/app/app/learning/knowledge-actions",
         replacement: path.join(root, "tests/import-harness/client-actions.ts"),
       },
+      {
+        find: "@/app/app/learning/progress-actions",
+        replacement: path.join(root, "tests/import-harness/client-actions.ts"),
+      },
+      {
+        find: "@/app/app/fetch-actions",
+        replacement: path.join(root, "tests/import-harness/client-actions.ts"),
+      },
+      {
+        find: "@/app/app/knowledge/draft-actions",
+        replacement: path.join(root, "tests/import-harness/client-actions.ts"),
+      },
+      {
+        find: "@/app/(auth)/actions",
+        replacement: path.join(root, "tests/import-harness/client-actions.ts"),
+      },
       { find: "@", replacement: path.join(root, "src") },
     ],
   },
@@ -43,6 +59,13 @@ const review = await vite.ssrLoadModule("/src/app/app/actions.ts");
 const gateway = await vite.ssrLoadModule("/src/app/app/knowledge/gateway-actions.ts");
 const learning = await vite.ssrLoadModule("/src/app/app/learning/knowledge-actions.ts");
 const pathData = await vite.ssrLoadModule("/src/lib/knowledge/learning.ts");
+const progress = await vite.ssrLoadModule("/src/app/app/learning/progress-actions.ts");
+const learningData = await vite.ssrLoadModule("/src/lib/learning/read-model.ts");
+const workspaceData = await vite.ssrLoadModule("/src/lib/workspace-data.ts");
+const knowledgeFetch = await vite.ssrLoadModule("/src/app/app/fetch-actions.ts");
+const memberData = await vite.ssrLoadModule("/src/lib/member-management.ts");
+const draftData = await vite.ssrLoadModule("/src/lib/knowledge/draft-manager.ts");
+const drafts = await vite.ssrLoadModule("/src/app/app/knowledge/draft-actions.ts");
 const recordData = await vite.ssrLoadModule("/src/lib/knowledge/record.ts");
 const templates = await vite.ssrLoadModule("/src/app/app/knowledge/templates/route.ts");
 const server = http.createServer(async (req, res) => {
@@ -61,6 +84,8 @@ const server = http.createServer(async (req, res) => {
       url.pathname === "/app" ||
       url.pathname === "/app/knowledge" ||
       url.pathname === "/app/learning" ||
+      url.pathname === "/app/progression" ||
+      url.pathname === "/app/analytics" ||
       /^\/app\/(knowledge|learning)\/[\da-f-]+$/.test(url.pathname)
     ) {
       res.setHeader("Content-Type", "text/html");
@@ -74,6 +99,11 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname.startsWith("/fixture/")) {
       const who = url.pathname.split("/").at(-1);
+      if (who === "logout") {
+        res.setHeader("Set-Cookie", "fixture=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
+        res.end("synthetic fixture signed out");
+        return;
+      }
       if (!database.identities[who]) {
         res.writeHead(400);
         res.end();
@@ -85,9 +115,18 @@ const server = http.createServer(async (req, res) => {
     }
     if (
       url.pathname.startsWith("/action/") ||
-      ["/records", "/paths", "/me", "/record-data", "/path-data", "/recent-uploads"].includes(
-        url.pathname,
-      ) ||
+      [
+        "/records",
+        "/paths",
+        "/me",
+        "/record-data",
+        "/path-data",
+        "/learning-data",
+        "/progress-data",
+        "/analytics-data",
+        "/draft-data",
+        "/recent-uploads",
+      ].includes(url.pathname) ||
       url.pathname === "/app/knowledge/templates"
     ) {
       const who = /fixture=([\w-]+)/.exec(req.headers.cookie ?? "")?.[1];
@@ -104,6 +143,32 @@ const server = http.createServer(async (req, res) => {
           return Response.json(await recordData.loadKnowledgeRecord(url.searchParams.get("id")));
         if (url.pathname === "/path-data")
           return Response.json(await pathData.loadLearningPath(url.searchParams.get("id")));
+        if (url.pathname === "/learning-data")
+          return Response.json(
+            await learningData.loadLearningWorkspace(url.searchParams.get("id")),
+          );
+        if (url.pathname === "/progress-data")
+          return Response.json(await workspaceData.readWorkspaceProgress());
+        if (url.pathname === "/draft-data")
+          return Response.json(await draftData.loadDraftManager());
+        if (url.pathname === "/analytics-data") {
+          const ws = await database.requireWorkspace();
+          if (ws.role !== "owner") return new Response("Owner access required", { status: 403 });
+          const filters = Object.fromEntries(
+            ["from", "to", "member", "path"].map((key) => [key, url.searchParams.get(key) ?? ""]),
+          );
+          const result = await workspaceData.readWorkspaceProgress(filters);
+          const options = await workspaceData.readWorkspaceProgress();
+          const settings = await memberData.getAccountSettings();
+          return Response.json({
+            ...result,
+            options: options.rows,
+            members: settings.members,
+            filters,
+            events: [],
+            governance: url.searchParams.get("tab") === "governance",
+          });
+        }
         if (url.pathname === "/recent-uploads")
           return Response.json(await gateway.listGatewayUploads());
         if (url.pathname === "/app/knowledge/templates") return templates.GET(new Request(url));
@@ -136,6 +201,13 @@ const server = http.createServer(async (req, res) => {
           else if (name === "gateway-approve") data = await gateway.approveGatewayKnowledge(input);
           else if (name === "gateway-discard") data = await gateway.discardGatewayUpload(input);
           else if (name === "path-add") data = await learning.addApprovedKnowledge(input);
+          else if (name === "learning-publish")
+            data = await progress.publishLearningRevision(input);
+          else if (name === "learning-draft") data = await progress.beginLearningRevision(input);
+          else if (name === "learning-progress")
+            data = await progress.recordLearningProgress(input);
+          else if (name === "knowledge-fetch") data = await knowledgeFetch.fetchKnowledge(input);
+          else if (name === "draft-discard") data = await drafts.discardDraftGroup(input);
           else throw Error("Unknown fixture action");
         }
         return Response.json(data);
