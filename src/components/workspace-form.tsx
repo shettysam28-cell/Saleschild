@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import {
   createKnowledge,
   createCourse,
@@ -16,12 +16,17 @@ export function WorkspaceForm({
   kind,
   name,
   publish = false,
+  onSaved,
 }: {
   kind: keyof typeof actions;
   name?: string;
   publish?: boolean;
+  onSaved?: () => void;
 }) {
   const [state, action, pending] = useActionState(actions[kind], {});
+  useEffect(() => {
+    if (state.success) onSaved?.();
+  }, [state, onSaved]);
   return (
     <form className="workspace-form" action={action}>
       {kind === "settings" ? (

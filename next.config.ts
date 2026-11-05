@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: { serverActions: { bodySizeLimit: "3mb" } },
+  experimental: {
+    serverActions: { bodySizeLimit: "3mb" },
+    // The pinned TypeScript 6 exposes its compiler API; keep full build-time checking
+    // without relying on captured output from a detached TypeScript CLI process.
+    useTypeScriptCli: false,
+  },
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
   outputFileTracingExcludes: {

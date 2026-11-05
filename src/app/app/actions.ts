@@ -88,27 +88,12 @@ export async function updateKnowledge(_state: ActionState, form: FormData): Prom
   };
 }
 export async function requestWorkflow(_state: ActionState, form: FormData): Promise<ActionState> {
-  const { client, user, organization, role } = await requireWorkspace();
-  if (!canAuthor(role)) return denied;
-  const parsed = z
-    .object({
-      objective: z.string().trim().min(10).max(2000),
-      mode: z.enum(["manual", "assisted"]),
-    })
-    .safeParse(Object.fromEntries(form));
-  if (!parsed.success)
-    return { error: true, message: "Describe your objective in 10–2,000 characters." };
-  const { error } = await client.from("ai_workflows").insert({
-    ...parsed.data,
-    organization_id: organization.id,
-    requested_by: user.id,
-    status: "draft",
-  });
-  if (error) return { error: true, message: "We couldn’t save your workflow request." };
-  revalidatePath("/app/workflows");
+  await requireWorkspace();
+  void _state;
+  void form;
   return {
-    success: true,
-    message: "Draft request saved. No AI processing or external action has started.",
+    error: true,
+    message: "AI Workflow is a work in progress. Requests and processing are not enabled.",
   };
 }
 export async function updateOrganization(
@@ -116,7 +101,7 @@ export async function updateOrganization(
   form: FormData,
 ): Promise<ActionState> {
   const { client, organization, role } = await requireWorkspace();
-  if (!canAdmin(role)) return denied;
+  if (role !== "owner") return denied;
   const parsed = organizationSchema.safeParse({ name: form.get("name") });
   if (!parsed.success)
     return { error: true, message: "Use an organization name of 2–100 characters." };

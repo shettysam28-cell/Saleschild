@@ -21,7 +21,7 @@ export async function proxy(request: NextRequest) {
     });
   let response = NextResponse.next({ request });
   const privatePath =
-    /^\/(app(?:\/|$)|home$|onboarding|auth(?:\/|$)|login|register|forgot-password|reset-password)/.test(
+    /^\/(app(?:\/|$)|home$|onboarding|member-setup|access-unavailable|auth(?:\/|$)|login|register|forgot-password|reset-password)/.test(
       path,
     );
   if (!privatePath) return response;

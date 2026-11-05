@@ -1,0 +1,51 @@
+name: Read-only production smoke
+on:
+  push:
+    branches: [main, feature/issue-5-learning-workspace]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Check public pages and anonymous access boundaries
+        run: |
+          node --input-type=module <<'JS'
+          const origin = 'https://saleschild.netlify.app';
+          const get = path => fetch(new URL(path, origin), {
+            redirect: 'manual', signal: AbortSignal.timeout(30000),
+            headers: { 'User-Agent': 'SaleschildReleaseSmoke/1.0' },
+          });
+          const home = await get('/');
+          const html = await home.text();
+          if (home.status !== 200 || !html.includes('Saleschild')) throw Error('Homepage unavailable');
+          console.log('PASS homepage: HTTP 200, Saleschild content');
+          const login = await get('/login');
+          if (login.status !== 200) throw Error('Login page unavailable');
+          console.log('PASS login page: HTTP 200 (no sign-in attempted)');
+          for (const path of ['/app', '/app/knowledge', '/app/learning', '/app/analytics', '/app/settings']) {
+            const response = await get(path);
+            const location = response.headers.get('location');
+            if (![302, 303, 307, 308].includes(response.status) || !location || new URL(location, origin).pathname !== '/login')
+              throw Error('Anonymous access was not denied for ' + path);
+            console.log('PASS anonymous boundary:', path, response.status);
+          }
+          for (const path of ['/AGENTS.md', '/.env']) {
+            const response = await get(path);
+            if (![403, 404].includes(response.status)) throw Error('Private path exposed: ' + path);
+            console.log('PASS private path:', path, response.status);
+          }
+          const assets = [...html.matchAll(/(?:src|href)="([^"\s]+\.(?:js|css)(?:\?[^"\s]*)?)"/g)].map(x => x[1]);
+          for (const extension of ['.js', '.css']) {
+            const asset = assets.find(x => new URL(x, origin).pathname.endsWith(extension));
+            if (!asset || new URL(asset, origin).origin !== origin) throw Error('Expected local asset missing');
+            if ((await get(asset)).status !== 200) throw Error('Static asset delivery failed');
+            console.log('PASS static asset:', extension);
+          }
+          console.log('Read-only smoke complete. Authenticated flows and customer data were not accessed.');
+          JS

@@ -13,10 +13,10 @@ export async function initialize() {
     .filter((f) => f.endsWith(".sql"))
     .sort())
     await db.exec(await readFile("supabase/migrations/" + name, "utf8"));
-  for (const [i, name] of ["owner-a", "owner-b", "learner-a", "editor-a"].entries()) {
+  for (const [i, name] of ["owner-a", "owner-b", "learner-a", "editor-a", "learner-b"].entries()) {
     const user = `00000000-0000-4000-8000-00000000000${i + 1}`;
     await db.query("insert into auth.users values($1,now())", [user]);
-    identities[name] = { user, org: "", role: i === 2 ? "learner" : i === 3 ? "editor" : "owner" };
+    identities[name] = { user, org: "", role: i === 3 ? "editor" : i >= 2 ? "learner" : "owner" };
     if (i < 2) {
       await db.exec("begin;set local role authenticated");
       await db.query("select set_config('request.jwt.claim.sub',$1,true)", [user]);
@@ -28,8 +28,8 @@ export async function initialize() {
       await db.exec("commit");
     }
   }
-  for (const name of ["learner-a", "editor-a"]) {
-    identities[name].org = identities["owner-a"].org;
+  for (const name of ["learner-a", "editor-a", "learner-b"]) {
+    identities[name].org = identities[name === "learner-b" ? "owner-b" : "owner-a"].org;
     await db.query("insert into public.memberships(organization_id,user_id,role)values($1,$2,$3)", [
       identities[name].org,
       identities[name].user,
@@ -72,6 +72,15 @@ const rpcKeys: Record<string, string[]> = {
   update_gateway_knowledge: ["org_id", "knowledge_id", "expected_version", "title", "fields"],
   add_knowledge_to_learning_path: ["org_id", "course_id", "source_ids", "request_id"],
   read_learning_path: ["org_id", "course_id"],
+  publish_learning_revision: ["org_id", "course_id", "expected_lesson_ids"],
+  begin_learning_revision: ["org_id", "course_id"],
+  read_learning_revision: ["org_id", "course_id"],
+  record_learning_progress: ["org_id", "revision_id", "unit_id", "action", "step", "evidence"],
+  read_learning_progress: ["org_id", "member_id", "course_id", "from_date", "to_date"],
+  search_approved_knowledge: ["org_id", "query_text", "result_limit"],
+  list_workspace_members: ["org_id"],
+  list_knowledge_draft_groups: ["org_id"],
+  discard_knowledge_draft_group: ["org_id", "group_id", "group_kind", "expected_records"],
 };
 const tables = new Set([
   "knowledge_items",
@@ -81,6 +90,9 @@ const tables = new Set([
   "gateway_sources",
   "courses",
   "lessons",
+  "learning_path_revisions",
+  "learning_revision_units",
+  "learning_unit_progress",
 ]);
 const quoted = (name: string) => {
   if (!/^[a-z_]+$/.test(name)) throw Error("Unsafe fixture identifier");
@@ -93,7 +105,9 @@ async function query(sql: string, args: unknown[] = []) {
   try {
     const result = await db.query<Record<string, unknown>>(sql, args);
     await db.exec("release savepoint fixture_query");
-    return { data: result.rows, error: null };
+    // Match the Data API's JSON transport (not PGlite's native Date objects).
+    const rows = JSON.parse(JSON.stringify(result.rows)) as Record<string, unknown>[];
+    return { data: rows, error: null };
   } catch (e) {
     await db.exec("rollback to savepoint fixture_query");
     return { data: null, error: { code: (e as { code?: string }).code } };
@@ -212,24 +226,33 @@ export async function requireWorkspace() {
     rpc: async (name: string, args: Record<string, unknown>) => {
       const keys = rpcKeys[name];
       if (!keys) throw Error("Unexpected fixture RPC");
+      const rows = ["read_learning_progress", "search_approved_knowledge"].includes(name);
+      const call = `public.${name}(${keys.map((_, i) => "$" + (i + 1)).join(",")})`;
       const result = await query(
-        `select public.${name}(${keys.map((_, i) => "$" + (i + 1)).join(",")}) result`,
-        keys.map((k) => (k === "source_ids" ? args[k] : bound(args[k]))),
+        rows ? `select * from ${call}` : `select ${call} result`,
+        keys.map((k) =>
+          ["source_ids", "expected_lesson_ids"].includes(k) ? args[k] : bound(args[k]),
+        ),
       );
-      return { ...result, data: result.data?.[0]?.result ?? null };
+      return { ...result, data: rows ? result.data : (result.data?.[0]?.result ?? null) };
     },
   };
   return {
     client,
-    user: { id: identity.user },
-    organization: { id: identity.org },
+    user: { id: identity.user, email: "fictional-member@example.test" },
+    profile: { displayName: identity.role === "learner" ? "Fictional Member" : "Fictional Owner" },
+    organization: { id: identity.org, name: "Fictional organization" },
     role: identity.role,
   };
+}
+export async function requireUser() {
+  const { client, user } = await requireWorkspace();
+  return { client, user };
 }
 export async function records() {
   return (
     await db.query(
-      "select id,title,body,source_url,status,current_version,custom_fields from public.knowledge_items order by created_at",
+      "select id,title,body,source_url,status,current_version,custom_fields from public.knowledge_items where discarded_at is null order by created_at",
     )
   ).rows;
 }

@@ -11,17 +11,18 @@ import {
   Bell,
   Settings,
 } from "lucide-react";
-import { modules } from "@/lib/modules";
+import { navigationModules } from "@/lib/modules";
+import type { Role } from "@/lib/permissions";
 const icons = { BookOpen, GraduationCap, ClipboardCheck, Sparkles, BarChart3, Bell, Settings };
-export function AppNav() {
+export function AppNav({ role = "learner" }: { role?: Role }) {
   const path = usePathname();
   return (
     <nav className="app-navigation" aria-label="Workspace">
       <Link href="/app" aria-current={path === "/app" ? "page" : undefined}>
         <LayoutDashboard size={16} />
-        Overview
+        Home
       </Link>
-      {modules.map((module) => {
+      {navigationModules(role).map((module) => {
         const Icon = icons[module.icon];
         return (
           <Link

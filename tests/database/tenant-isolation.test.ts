@@ -115,7 +115,7 @@ describe("actual Phase 0 migration: organization and role isolation", () => {
     const { rows } = await db.query<{ name: string; rls: boolean }>(
       "select relname as name,relrowsecurity as rls from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'",
     );
-    expect(rows.length).toBe(17);
+    expect(rows.length).toBe(22);
     expect(rows.every((r) => r.rls)).toBe(true);
   });
   it("atomically creates an owner and welcome notification", async () => {

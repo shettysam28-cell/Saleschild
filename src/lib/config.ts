@@ -40,7 +40,12 @@ export function safeRedirect(value: string | null | undefined, fallback = "/app"
     /[\\\s\u0000-\u001f]/.test(value)
   )
     return fallback;
-  if (!/^\/(app(?:\/|\?|$)|onboarding(?:\?|$)|reset-password(?:\?|$))/.test(value)) return fallback;
+  if (
+    !/^\/(app(?:\/|\?|$)|onboarding(?:\?|$)|member-setup(?:\?|$)|reset-password(?:\?|$))/.test(
+      value,
+    )
+  )
+    return fallback;
   try {
     const parsed = new URL(value, "https://redirect.invalid");
     const decoded = decodeURIComponent(parsed.pathname);
@@ -48,7 +53,7 @@ export function safeRedirect(value: string | null | undefined, fallback = "/app"
     if (
       normalized.origin !== "https://redirect.invalid" ||
       /[\\\s\u0000-\u001f]/.test(decoded) ||
-      !/^\/(app(?:\/|$)|onboarding$|reset-password$)/.test(normalized.pathname)
+      !/^\/(app(?:\/|$)|onboarding$|member-setup$|reset-password$)/.test(normalized.pathname)
     )
       return fallback;
     return parsed.pathname + parsed.search + parsed.hash;
