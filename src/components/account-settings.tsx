@@ -236,16 +236,37 @@ export function AccountSettings({
       </section>
       {owner && (
         <section className="workspace-card" aria-labelledby="member-management-title">
-          <h2 id="member-management-title">Member management</h2>
+          <h2 id="member-management-title">Organization members</h2>
           <p>
             {initial.seats.used} of {initial.seats.limit} member seats occupied. The owner has a
             separate seat. Pending and provisioned accounts count toward the limit.
           </p>
-          <ProvisionMemberForm
-            available={initial.provisioning.available}
-            reason={initial.provisioning.reason}
-            full={initial.seats.used >= 2}
-          />
+          {!initial.provisioning.available && (
+            <details className="member-setup-requirements">
+              <summary className="button button-outline">Add Member — setup required</summary>
+              <p>{initial.provisioning.reason}</p>
+              <ol>
+                <li>Ask your Saleschild administrator to complete secure account setup.</li>
+                <li>
+                  Keep independent email verification. Review an approved verification workflow that
+                  meets the no-automatic-email requirement, or authorize a supported verification
+                  channel separately.
+                </li>
+                <li>
+                  Verify account collision handling, first-login password change, session revocation
+                  and two-seat limits in an authorized hosted development environment before
+                  enabling account creation.
+                </li>
+              </ol>
+            </details>
+          )}
+          {initial.provisioning.available && (
+            <ProvisionMemberForm
+              available={initial.provisioning.available}
+              reason={initial.provisioning.reason}
+              full={initial.seats.used >= 2}
+            />
+          )}
           <div className="record-list" aria-label="Organization members">
             {initial.members.map((member) => (
               <article className="record-card" key={member.id}>

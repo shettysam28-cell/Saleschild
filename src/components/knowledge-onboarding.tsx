@@ -1,4 +1,5 @@
 "use client";
+import { KnowledgeTemplateLibrary } from "./knowledge-template-library";
 import { useRouter } from "next/navigation";
 import { suggestMappings } from "@/lib/knowledge/readiness";
 import type { ImportDiagnostic } from "@/lib/knowledge/diagnostics";
@@ -11,7 +12,7 @@ import {
   BookOpen,
   RotateCcw,
 } from "lucide-react";
-import { columns, templateLibrary, type Column } from "@/lib/knowledge/templates";
+import { columns, type Column } from "@/lib/knowledge/templates";
 import type { ParsedSource } from "@/lib/knowledge/spreadsheets";
 import type { Readiness, curriculumPreview } from "@/lib/knowledge/readiness";
 import {
@@ -156,37 +157,7 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
           <ArrowRight size={18} />
         </button>
       </div>
-      {library && (
-        <div className="template-library">
-          <p>
-            Fictional examples only. Replace sample facts with your approved sources. Excel includes
-            Instructions and Sample Data sheets. Blank CSV files contain headers.
-          </p>
-          {templateLibrary.map((t) => (
-            <article className="template-tile" key={t.id}>
-              <h3>{t.name}</h3>
-              <p>{t.topic}</p>
-              <div>
-                {(["xlsx", "csv"] as const).map((format) => (
-                  <div key={format}>
-                    <strong>{format.toUpperCase()}</strong>
-                    {(["blank", "sample"] as const).map((variant) => (
-                      <a
-                        key={variant}
-                        href={`/app/knowledge/templates?id=${t.id}&format=${format}&variant=${variant}`}
-                        download
-                        aria-label={`Download ${t.name} ${variant} ${format} template`}
-                      >
-                        {variant === "blank" ? "Blank" : "With examples"}
-                      </a>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
+      {library && <KnowledgeTemplateLibrary />}
       <div className="knowledge-upload">
         <label className="form-field">
           Choose your knowledge source
@@ -202,8 +173,8 @@ export function KnowledgeOnboarding({ admin }: { admin: boolean }) {
           />
         </label>
         <small>
-          CSV or XLSX · 2 MiB · up to 200 records. PDF and DOCX extraction: coming soon. No files
-          are sent to an AI.
+          CSV or XLSX · 2 MiB · up to 200 records. For supported Word documents, use the main
+          Knowledge Gateway. PDF extraction is not supported. No files are sent to an AI.
         </small>
       </div>
       {worksheets.length > 1 && (

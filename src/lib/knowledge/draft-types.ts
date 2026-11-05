@@ -15,6 +15,8 @@ export type DraftGroup = {
   publishedCount: number;
   discardedCount: number;
   resumable: boolean;
+  discardable?: boolean;
+  blockedReason?: string | null;
   records: DraftRecord[];
 };
 export type DraftManagerData = { groups: DraftGroup[]; error?: string };

@@ -33,6 +33,10 @@ const vite = await createServer({
         replacement: path.join(root, "tests/import-harness/client-actions.ts"),
       },
       {
+        find: "@/app/app/learning/revision-actions",
+        replacement: path.join(root, "tests/import-harness/client-actions.ts"),
+      },
+      {
         find: "@/app/app/learning/progress-actions",
         replacement: path.join(root, "tests/import-harness/client-actions.ts"),
       },
@@ -58,6 +62,8 @@ const actions = await vite.ssrLoadModule("/src/app/app/knowledge/import-actions.
 const review = await vite.ssrLoadModule("/src/app/app/actions.ts");
 const gateway = await vite.ssrLoadModule("/src/app/app/knowledge/gateway-actions.ts");
 const learning = await vite.ssrLoadModule("/src/app/app/learning/knowledge-actions.ts");
+const guideActions = await vite.ssrLoadModule("/src/app/app/learning/revision-actions.ts");
+const guideData = await vite.ssrLoadModule("/src/lib/learning/guides.ts");
 const pathData = await vite.ssrLoadModule("/src/lib/knowledge/learning.ts");
 const progress = await vite.ssrLoadModule("/src/app/app/learning/progress-actions.ts");
 const learningData = await vite.ssrLoadModule("/src/lib/learning/read-model.ts");
@@ -86,7 +92,8 @@ const server = http.createServer(async (req, res) => {
       url.pathname === "/app/learning" ||
       url.pathname === "/app/progression" ||
       url.pathname === "/app/analytics" ||
-      /^\/app\/(knowledge|learning)\/[\da-f-]+$/.test(url.pathname)
+      /^\/app\/(knowledge|learning)\/[\da-f-]+$/.test(url.pathname) ||
+      /^\/app\/learning\/[\da-f-]+\/revision$/.test(url.pathname)
     ) {
       res.setHeader("Content-Type", "text/html");
       res.end(
@@ -122,6 +129,7 @@ const server = http.createServer(async (req, res) => {
         "/record-data",
         "/path-data",
         "/learning-data",
+        "/guide-data",
         "/progress-data",
         "/analytics-data",
         "/draft-data",
@@ -146,6 +154,13 @@ const server = http.createServer(async (req, res) => {
         if (url.pathname === "/learning-data")
           return Response.json(
             await learningData.loadLearningWorkspace(url.searchParams.get("id")),
+          );
+        if (url.pathname === "/guide-data")
+          return Response.json(
+            await guideData.loadStudyGuide(
+              url.searchParams.get("id"),
+              url.searchParams.get("edition") || undefined,
+            ),
           );
         if (url.pathname === "/progress-data")
           return Response.json(await workspaceData.readWorkspaceProgress());
@@ -206,6 +221,7 @@ const server = http.createServer(async (req, res) => {
           else if (name === "learning-draft") data = await progress.beginLearningRevision(input);
           else if (name === "learning-progress")
             data = await progress.recordLearningProgress(input);
+          else if (name === "guide-create") data = await guideActions.createRevisionGuide(input);
           else if (name === "knowledge-fetch") data = await knowledgeFetch.fetchKnowledge(input);
           else if (name === "draft-discard") data = await drafts.discardDraftGroup(input);
           else throw Error("Unknown fixture action");

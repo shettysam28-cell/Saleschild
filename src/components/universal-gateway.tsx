@@ -1,6 +1,13 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import {
+  GATEWAY_ACCEPT,
+  GATEWAY_FORMAT_LABEL,
+  UPLOAD_LIMIT_LABEL,
+  MAX_ROWS,
+  uploadIssue,
+} from "@/lib/knowledge/upload-contract";
 import { useRouter } from "next/navigation";
 import {
   uploadGatewaySource,
@@ -150,6 +157,11 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
     return () => clearTimeout(timer.current);
   }, [choices, upload, persist]);
   async function choose(file: File) {
+    const issue = uploadIssue(file);
+    if (issue) {
+      error(issue);
+      return;
+    }
     clearTimeout(timer.current);
     await queue.current;
     setBusy(true);
@@ -279,7 +291,7 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
             Choose a knowledge source
             <input
               type="file"
-              accept=".xlsx,.csv,.docx"
+              accept={GATEWAY_ACCEPT}
               disabled={busy}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -289,8 +301,8 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
             />
           </label>
           <p className="form-help">
-            CSV, XLSX or DOCX · 2 MiB per file · save up to 200 records at once · 32 spreadsheet
-            columns. Your existing templates remain optional presets below.
+            {GATEWAY_FORMAT_LABEL} · {UPLOAD_LIMIT_LABEL}. Your existing templates remain optional
+            presets below.
           </p>
           <details>
             <summary>Spreadsheet and Word formatting guide</summary>
@@ -676,7 +688,7 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
                 busy ||
                 (!saveLocked &&
                   (!selected.length ||
-                    selected.length > 200 ||
+                    selected.length > MAX_ROWS ||
                     Boolean(invalid.length || exact.length || possible.length)))
               }
               onClick={() => void save()}

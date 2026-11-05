@@ -1,5 +1,11 @@
 "use server";
 import { createHash } from "node:crypto";
+import {
+  MAX_FILE_BYTES,
+  MAX_ROWS,
+  MAX_COLUMNS,
+  uploadIssue,
+} from "@/lib/knowledge/upload-contract";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireWorkspace } from "@/lib/session";
@@ -19,7 +25,7 @@ const choicesSchema = z
     sheet: z.number().int().min(0).max(19),
     headerRow: z.number().int().min(0).max(10000),
     titleColumn: z.string().regex(/^$|^c([1-9]|[12][0-9]|3[0-2])$/),
-    labels: z.array(z.string().max(100)).max(32),
+    labels: z.array(z.string().max(100)).max(MAX_COLUMNS),
     edits: z
       .record(
         z.string().regex(/^\d{1,2}:\d{1,5}$/),
@@ -142,8 +148,10 @@ export async function uploadGatewaySource(form: FormData): Promise<Result> {
   try {
     const file = form.get("file");
     if (!(file instanceof File)) fail("FILE_TYPE", "Choose a CSV, XLSX or DOCX source.");
-    if (file.size > 2 * 1024 * 1024 || !file.size)
+    if (file.size > MAX_FILE_BYTES || !file.size)
       fail("FILE_LIMIT", "Choose a non-empty source no larger than 2 MiB.");
+    const issue = uploadIssue(file);
+    if (issue) fail("FILE_TYPE", issue);
     const digest = createHash("sha256")
       .update(new Uint8Array(await file.arrayBuffer()))
       .digest("hex");
@@ -266,7 +274,7 @@ export async function commitGatewayUpload(input: unknown): Promise<Result> {
       ).filter((r) => !r.excluded);
       if (
         !rows.length ||
-        rows.length > 200 ||
+        rows.length > MAX_ROWS ||
         rows.some((r) => r.errors.length || r.exact.length || (r.possible.length && !r.confirmed))
       )
         fail(
@@ -329,7 +337,7 @@ export async function updateGatewayKnowledge(input: unknown): Promise<Result> {
               .strict(),
           )
           .min(1)
-          .max(32),
+          .max(MAX_COLUMNS),
       })
       .strict()
       .safeParse(input);

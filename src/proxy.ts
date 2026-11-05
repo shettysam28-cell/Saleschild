@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseConfig } from "@/lib/config";
+import { workspaceFetch } from "@/lib/supabase/request";
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -36,6 +37,7 @@ export async function proxy(request: NextRequest) {
     return response;
   }
   const client = createServerClient(config.url, config.key, {
+    global: { fetch: workspaceFetch },
     cookieOptions: { sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/" },
     cookies: {
       getAll() {

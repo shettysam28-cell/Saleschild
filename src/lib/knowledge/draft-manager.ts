@@ -6,7 +6,7 @@ import type { DraftGroup, DraftManagerData } from "./draft-types";
 export async function loadDraftManager(): Promise<DraftManagerData> {
   const ws = await requireWorkspace();
   if (!canAuthor(ws.role)) return { groups: [], error: "Author access is required." };
-  const { data, error } = await ws.client.rpc("list_knowledge_draft_groups", {
+  const { data, error } = await ws.client.rpc("list_knowledge_draft_groups_v2", {
     org_id: ws.organization.id,
   });
   if (error)

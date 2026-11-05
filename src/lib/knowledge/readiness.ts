@@ -1,3 +1,4 @@
+import { MAX_ROWS } from "./upload-contract";
 import { columns, type Column, type SourceRecord } from "./templates";
 import { fail } from "./diagnostics";
 export const requiredColumns: Column[] = ["Topic", "Category", "Knowledge Content"];
@@ -16,8 +17,7 @@ export function suggestMappings(headers: string[]) {
     ]),
   ) as Partial<Record<Column, string>>;
 }
-export const MAX_ROWS = 200;
-export const MAX_FILE_BYTES = 2 * 1024 * 1024;
+export { MAX_ROWS, MAX_FILE_BYTES } from "./upload-contract";
 export const normalize = (value: string) => value.trim().replace(/\s+/gu, " ").toLowerCase();
 export const recordKey = (r: SourceRecord) =>
   [r.Category, r.Topic, r.Subtopic].map(normalize).join("\u001f");

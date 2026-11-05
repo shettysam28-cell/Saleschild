@@ -251,3 +251,66 @@ it("reports physical CSV source rows correctly after skipped blank lines", async
   );
   expect(reviewRows(e, defaultChoices(e))[0].source.row).toBe(4);
 });
+
+for (const format of ["csv", "xlsx"] as const) {
+  it(`${format} default review excludes a BOM/blank-prefixed header and keeps source coordinates`, async () => {
+    const rows = [
+      ["Topic", "Category", "Knowledge Content"],
+      ["Fictional training", "Operations", "Keep the documented fictional guidance intact."],
+    ];
+    const file =
+      format === "xlsx"
+        ? await xlsx([[], ...rows])
+        : new File(["\uFEFF\n" + rows.map((row) => row.join(",")).join("\r\n")], "header.csv");
+    const extracted = await extractGateway(file);
+    const choices = defaultChoices(extracted);
+    const result = reviewRows(extracted, choices);
+    expect(result).toHaveLength(1);
+    expect(result[0].title).toBe("Fictional training");
+    expect(result[0].row).toBeGreaterThan(choices.headerRow);
+    expect(result[0].errors).toEqual([]);
+  });
+  it(`${format} prevents a known template header being saved with No header row`, async () => {
+    const data = [
+      ["Topic", "Category", "Knowledge Content"],
+      ["Fictional training", "Operations", "Keep the documented fictional guidance intact."],
+    ];
+    const file =
+      format === "xlsx"
+        ? await xlsx(data)
+        : new File([data.map((row) => row.join(",")).join("\n")], "known-header.csv");
+    const extracted = await extractGateway(file);
+    const result = reviewRows(extracted, { ...defaultChoices(extracted), headerRow: 0 });
+    expect(result[0].errors.join(" ")).toContain("column headings, not knowledge");
+    expect(result[1].errors).toEqual([]);
+  });
+  it(`${format} treats header-only input as zero knowledge records`, async () => {
+    const file =
+      format === "xlsx"
+        ? await xlsx([["Topic", "Category", "Knowledge Content"]])
+        : new File(["Topic,Category,Knowledge Content\n"], "blank-template.csv");
+    const extracted = await extractGateway(file);
+    expect(reviewRows(extracted, defaultChoices(extracted))).toEqual([]);
+  });
+}
+it("rejects repeated arbitrary mapped headers without hiding genuine ambiguous content", async () => {
+  const extracted = await extractGateway(
+    await xlsx([
+      ["Procedure", "Company instruction"],
+      ["Fictional setup", "Read this exact company-defined training instruction."],
+      ["Procedure", "Company instruction"],
+    ]),
+  );
+  const choices = defaultChoices(extracted);
+  choices.labels = ["Local procedure title", "Local documented guidance"];
+  const result = reviewRows(extracted, choices);
+  expect(result[0].fields[0].label).toBe("Local procedure title");
+  expect(result[0].originalFields[0].label).toBe("Procedure");
+  expect(result[1].errors.join(" ")).toContain("column headings, not knowledge");
+  const ambiguous = await extractGateway(
+    await xlsx([["Topic", "This is genuine training content, not a heading."]]),
+  );
+  expect(reviewRows(ambiguous, { ...defaultChoices(ambiguous), headerRow: 0 })[0].errors).toEqual(
+    [],
+  );
+});

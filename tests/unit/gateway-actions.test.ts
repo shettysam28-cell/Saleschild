@@ -247,3 +247,29 @@ it("keeps missing migrations and stale saves actionable without claiming success
   results.push({ data: null, error: { code: "42P01" } });
   expect((await loadGatewayUpload(id)).code).toBe("DATABASE_SETUP");
 });
+
+it("blocks a known template header at the save boundary even if No header row is submitted", async () => {
+  upload.extraction = {
+    ...extraction,
+    sheets: [
+      {
+        name: "CSV",
+        rows: [
+          { row: 1, cells: ["Topic", "Category", "Knowledge Content"] },
+          {
+            row: 2,
+            cells: [
+              "Fictional setup",
+              "Training",
+              "A sufficiently detailed fictional instruction for learning.",
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  upload.choices = { ...defaultChoices(upload.extraction), headerRow: 0 };
+  const result = await commitGatewayUpload({ id, revision: 0, requestId });
+  expect(result.code).toBe("REVIEW");
+  expect(rpc.mock.calls.some(([name]) => name === "commit_gateway_upload")).toBe(false);
+});

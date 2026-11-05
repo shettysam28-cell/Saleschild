@@ -62,13 +62,13 @@ export function DraftManager({ initial }: { initial: DraftManagerData }) {
         <p>No upload groups yet. Your next upload will appear here.</p>
       )}
       {data.groups.map((group) => (
-        <details key={`${group.kind}:${group.id}`} className="record-card">
-          <summary>
+        <article key={`${group.kind}:${group.id}`} className="record-card draft-group">
+          <h3>
             <strong>{group.sourceName}</strong> —{" "}
             {group.kind === "review"
               ? "Review in progress"
               : `${group.draftCount} drafts · ${group.publishedCount} approved · ${group.discardedCount} discarded`}
-          </summary>
+          </h3>
           <p>
             {group.recordCount} saved records ·{" "}
             <time dateTime={group.createdAt}>{group.createdAt.slice(0, 10)} UTC</time>
@@ -81,6 +81,20 @@ export function DraftManager({ initial }: { initial: DraftManagerData }) {
               Resume review
             </Link>
           )}
+          {!group.resumable && group.records.some((r) => !r.discarded) && (
+            <Link
+              className="button button-outline button-small"
+              href={`/app/knowledge/${group.records.find((r) => !r.discarded)!.id}`}
+            >
+              Review
+            </Link>
+          )}
+          {group.publishedCount > 0 && (
+            <Link className="text-link" href="/app/knowledge?view=library">
+              Open Knowledge Library
+            </Link>
+          )}
+          {group.blockedReason && <p className="workspace-notice">{group.blockedReason}</p>}
           {group.records.length > 0 && (
             <ul>
               {group.records.map((record) => (
@@ -97,8 +111,7 @@ export function DraftManager({ initial }: { initial: DraftManagerData }) {
               ))}
             </ul>
           )}
-          {(group.kind === "review" || group.draftCount > 0) &&
-            group.publishedCount === 0 &&
+          {(group.kind === "review" || group.draftCount > 0 || group.publishedCount > 0) &&
             (confirm?.key === `${group.kind}:${group.id}` ? (
               <div role="group" aria-label={`Confirm discard of ${group.sourceName}`}>
                 <p>
@@ -124,7 +137,8 @@ export function DraftManager({ initial }: { initial: DraftManagerData }) {
             ) : (
               <button
                 className="button button-outline button-small"
-                disabled={busy}
+                disabled={busy || group.discardable !== true}
+                title={group.blockedReason || undefined}
                 onClick={() =>
                   setConfirm({
                     key: `${group.kind}:${group.id}`,
@@ -134,10 +148,10 @@ export function DraftManager({ initial }: { initial: DraftManagerData }) {
                   })
                 }
               >
-                Discard draft group
+                {group.discardable ? "Discard draft group" : "Discard unavailable"}
               </button>
             ))}
-        </details>
+        </article>
       ))}
       {data.groups.length === 50 && <p>Showing the latest 50 upload groups.</p>}
     </section>
