@@ -2,6 +2,9 @@
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
 export const MAX_ROWS = 200;
 export const MAX_COLUMNS = 32;
+// Retain bounded review headroom for introductory rows and owner exclusions.
+// Only MAX_ROWS records may be saved; context rows are never a higher save limit.
+export const MAX_REVIEW_ROWS = 250;
 export const SPREADSHEET_FORMATS = ["csv", "xlsx"] as const;
 export const GATEWAY_FORMATS = [...SPREADSHEET_FORMATS, "docx"] as const;
 export const GATEWAY_ACCEPT = GATEWAY_FORMATS.map((format) => `.${format}`).join(",");

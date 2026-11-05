@@ -7,7 +7,12 @@ import { zipSync } from "fflate";
 import { canonicalOOXML } from "./ooxml";
 import { readOfficeArchive } from "./office-archive";
 import { fail, ImportError, diagnostic, type ImportDiagnostic } from "./diagnostics";
-import { MAX_FILE_BYTES, MAX_ROWS, MAX_COLUMNS, SPREADSHEET_FORMATS } from "./upload-contract";
+import {
+  MAX_FILE_BYTES,
+  MAX_REVIEW_ROWS,
+  MAX_COLUMNS,
+  SPREADSHEET_FORMATS,
+} from "./upload-contract";
 export type ExtractedSheet = {
   name: string;
   rows: { row: number; cells: string[] }[];
@@ -16,11 +21,15 @@ export type ExtractedSheet = {
 export type SpreadsheetExtraction = { name: string; sheets: ExtractedSheet[] };
 function validateExtractedRows(rows: ExtractedSheet["rows"], worksheet: string) {
   const populated = rows.filter((r) => r.cells.some((c) => c.trim()));
-  if (populated.length > MAX_ROWS + 1)
-    fail("ROW_LIMIT", `Use at most ${MAX_ROWS} knowledge records plus a header.`, {
-      worksheet,
-      row: populated[MAX_ROWS + 1].row,
-    });
+  if (populated.length > MAX_REVIEW_ROWS + 1)
+    fail(
+      "ROW_LIMIT",
+      `Use at most ${MAX_REVIEW_ROWS} populated review rows plus a header; save at most 200 knowledge records.`,
+      {
+        worksheet,
+        row: populated[MAX_REVIEW_ROWS + 1].row,
+      },
+    );
   for (const r of rows) {
     if (r.row > 10000)
       fail("ROW_LIMIT", "Split this source into files within physical row 10,000.", {

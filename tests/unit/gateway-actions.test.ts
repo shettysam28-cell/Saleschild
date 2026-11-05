@@ -273,3 +273,27 @@ it("blocks a known template header at the save boundary even if No header row is
   expect(result.code).toBe("REVIEW");
   expect(rpc.mock.calls.some(([name]) => name === "commit_gateway_upload")).toBe(false);
 });
+
+it("rejects more than 200 selected records before any draft save", async () => {
+  upload.extraction = {
+    ...extraction,
+    sheets: [
+      {
+        name: "CSV",
+        rows: [
+          { row: 1, cells: ["Topic", "Content"] },
+          ...Array.from({ length: 201 }, (_, i) => ({
+            row: i + 2,
+            cells: [
+              `Fictional topic ${i}`,
+              "An explicit fictional training instruction with enough detail.",
+            ],
+          })),
+        ],
+      },
+    ],
+  };
+  upload.choices = defaultChoices(upload.extraction);
+  expect((await commitGatewayUpload({ id, revision: 0, requestId })).code).toBe("REVIEW");
+  expect(rpc.mock.calls.some(([name]) => name === "commit_gateway_upload")).toBe(false);
+});

@@ -25,7 +25,6 @@ import {
 
 type Props = {
   initialUploadId?: string;
-  recent?: { id: string; source_name: string; expires_at: string }[];
 };
 function reviewLocation(id?: string) {
   const url = new URL(window.location.href);
@@ -33,7 +32,7 @@ function reviewLocation(id?: string) {
   else url.searchParams.delete("upload");
   window.history.replaceState(null, "", url);
 }
-export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
+export function UniversalGateway({ initialUploadId }: Props) {
   const router = useRouter();
   const [upload, setUpload] = useState<GatewayUpload>();
   const [choices, setChoices] = useState<ReviewChoices>();
@@ -323,26 +322,6 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
               labels are imported as text; remote content is never fetched.
             </p>
           </details>
-          {recent.length > 0 && (
-            <div className="gateway-resume">
-              <h3>Resume a private review</h3>
-              {recent.map((r) => (
-                <button
-                  type="button"
-                  className="button button-outline"
-                  key={r.id}
-                  disabled={busy}
-                  onClick={() => void reopen(r.id)}
-                >
-                  {r.source_name}
-                </button>
-              ))}
-              <p className="form-help">
-                Reviews expire after 24 hours. Saving a draft preserves its source and version
-                history.
-              </p>
-            </div>
-          )}
         </div>
       )}
       {message && (

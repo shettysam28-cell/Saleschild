@@ -4,11 +4,13 @@ import {
   MAX_FILE_BYTES,
   MAX_ROWS,
   MAX_COLUMNS,
+  MAX_REVIEW_ROWS,
   GATEWAY_ACCEPT,
   GATEWAY_FORMATS,
   uploadIssue,
 } from "@/lib/knowledge/upload-contract";
 import { MAX_ROWS as legacyRows, MAX_FILE_BYTES as legacyBytes } from "@/lib/knowledge/readiness";
+import { defaultChoices, reviewRows } from "@/lib/knowledge/gateway-model";
 import { extractGateway } from "@/lib/knowledge/gateway-extraction";
 describe("shared knowledge upload contract", () => {
   it("shares the exact limits with the existing importer and accepts only supported formats", () => {
@@ -21,22 +23,25 @@ describe("shared knowledge upload contract", () => {
     expect(uploadIssue({ name: "fixture.csv", size: 0 })).toContain("non-empty");
     expect(uploadIssue({ name: "fixture.pdf", size: 10 })).toContain("not supported");
   });
-  it("enforces the record limit in actual server parsing", async () => {
+  it("preserves bounded review headroom without rejecting 200 records after an introductory row", async () => {
     const header = "Topic,Content\n";
     const records = Array.from(
       { length: MAX_ROWS },
       (_, i) => `Fictional lesson ${i},A documented fictional instruction for training.`,
     ).join("\n");
-    const accepted = await extractGateway(new File([header + records], "boundary.csv"));
-    expect(accepted.sheets[0].rows).toHaveLength(MAX_ROWS + 1);
-    await expect(
-      extractGateway(
-        new File(
-          [header + records + "\nOne too many,A documented additional fictional instruction."],
-          "overflow.csv",
-        ),
-      ),
-    ).rejects.toThrow(/200/);
+    const accepted = await extractGateway(
+      new File(["Company training introduction\n" + header + records], "boundary.csv"),
+    );
+    const result = reviewRows(accepted, { ...defaultChoices(accepted), headerRow: 2 });
+    expect(result).toHaveLength(MAX_ROWS);
+    expect(result.every((row) => !row.errors.length)).toBe(true);
+    const oversized = Array.from(
+      { length: MAX_REVIEW_ROWS + 1 },
+      (_, i) => `Fictional lesson ${i},A documented fictional instruction.`,
+    ).join("\n");
+    await expect(extractGateway(new File([header + oversized], "overflow.csv"))).rejects.toThrow(
+      /250/,
+    );
   });
   it("enforces the same column limit in actual server parsing", async () => {
     const csv =

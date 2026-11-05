@@ -7,7 +7,6 @@ import { modules } from "@/lib/modules";
 import { WorkspaceForm } from "@/components/workspace-form";
 import { KnowledgeTemplateLibrary } from "@/components/knowledge-template-library";
 import { UniversalGateway } from "@/components/universal-gateway";
-import { listGatewayUploads } from "@/app/app/knowledge/gateway-actions";
 import { markNotificationRead } from "@/app/app/actions";
 import { WorkspaceAnalytics } from "@/components/workspace-analytics";
 import { WorkspaceProgression } from "@/components/workspace-progression";
@@ -77,7 +76,6 @@ export default async function ModulePage({
         <>
           <UniversalGateway
             initialUploadId={typeof query.upload === "string" ? query.upload : undefined}
-            recent={await listGatewayUploads()}
           />
           <p className="workspace-notice">
             Uploads are saved as drafts. Continue review and publication in{" "}

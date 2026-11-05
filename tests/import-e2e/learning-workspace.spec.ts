@@ -195,7 +195,7 @@ test("official XLSX reaches published learning, member checkpoint, resume and te
   await member.getByRole("radio", { name: titles[0], exact: true }).check();
   await member.getByRole("button", { name: "Complete knowledge check", exact: true }).click();
   await expect(
-    member.getByRole("status").filter({ hasText: "Source checkpoint passed" }),
+    member.getByRole("status").filter({ hasText: "Knowledge check passed" }),
   ).toBeVisible();
   saved = await data(page, `/learning-data?id=${pathId}`);
   const completed = saved.progress[0];
@@ -267,6 +267,9 @@ test("Draft Manager resumes an upload and safely discards saved drafts after a l
   ).toBeVisible();
   await page.goto("/app/knowledge?view=drafts");
   const manager = page.getByRole("region", { name: "Draft Manager", exact: true });
+  await expect(
+    page.getByRole("heading", { name: "Resume a private review", exact: true }),
+  ).toHaveCount(0);
   let group = manager.locator(".draft-group").filter({ hasText: filename });
   await group.getByRole("link", { name: "Resume review", exact: true }).click();
   await expect(
@@ -375,6 +378,9 @@ test("keyword and natural-question Fetch presents grounded answers with expandab
   await page.getByRole("link", { name: /Review saved resource/ }).click();
   await page.getByRole("button", { name: "Approve and publish", exact: true }).click();
   await expect(page.locator(".app-title-row")).toContainText("published");
+  const sourceId = new URL(page.url()).pathname.split("/").at(-1)!;
+  const approvedVersion = (await data(page, "/record-data?id=" + sourceId)).record.current_version;
+  expect(approvedVersion).toBeGreaterThan(1);
   await page.goto("/app/knowledge?view=library");
   await expect(page.getByRole("link", { name: title, exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Draft Manager", exact: true })).toHaveCount(0);
@@ -388,7 +394,9 @@ test("keyword and natural-question Fetch presents grounded answers with expandab
   await result.getByRole("link", { name: "Read supporting citation", exact: true }).click();
   await expect(result.locator(".answer-citations")).toHaveAttribute("open");
   await expect(
-    result.getByRole("link", { name: /Open approved source · version 1/ }).first(),
+    result
+      .getByRole("link", { name: `Open approved source · version ${approvedVersion}`, exact: true })
+      .first(),
   ).toBeVisible();
   await expect(result.locator("blockquote").first()).toContainText("fictional refund form");
   await evidence(page, info, "grounded-answer-citations");

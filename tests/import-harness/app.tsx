@@ -70,8 +70,7 @@ function LegacyApp() {
 
 function UniversalApp() {
   const [records, setRecords] = useState<(EditableKnowledge & { source_url: string | null })[]>([]),
-    [paths, setPaths] = useState<{ id: string; title: string; description: string }[]>([]),
-    [recent, setRecent] = useState<{ id: string; source_name: string; expires_at: string }[]>([]);
+    [paths, setPaths] = useState<{ id: string; title: string; description: string }[]>([]);
   const [role, setRole] = useState<Role>("learner"),
     [learning, setLearning] = useState<LearningWorkspace>(),
     [analytics, setAnalytics] = useState<React.ComponentProps<typeof WorkspaceAnalytics>>(),
@@ -111,7 +110,6 @@ function UniversalApp() {
       } else {
         void get("/records").then(setRecords);
         void get("/paths").then(setPaths);
-        void get("/recent-uploads").then(setRecent);
         if (current === "/app/knowledge") void get("/draft-data").then(setDrafts);
         if (current === "/app/progression") void get("/progress-data").then(setProgression);
         if (current === "/app/analytics")
@@ -205,7 +203,6 @@ function UniversalApp() {
                         initialUploadId={
                           new URLSearchParams(window.location.search).get("upload") || undefined
                         }
-                        recent={recent}
                       />
                       <p>
                         Review saved drafts in{" "}
