@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 import { requireWorkspace } from "@/lib/session";
 import type { GatewayField } from "@/lib/knowledge/gateway-model";
+import { displayFields, primaryField } from "@/lib/knowledge/field-labels";
+import { readFieldLabels } from "@/lib/knowledge/field-label-reader";
 
 export default async function ApprovedSource({
   params,
@@ -28,6 +30,11 @@ export default async function ApprovedSource({
   const { data, error } = await query.order("version", { ascending: false }).limit(1).maybeSingle();
   if (error) throw Error("The approved source version could not be loaded.");
   if (!data) notFound();
+  const labels = (await readFieldLabels(ws.client, ws.organization.id, [id]))[id];
+  const fields = Array.isArray(data.custom_fields)
+    ? displayFields(data.custom_fields as GatewayField[], labels)
+    : [];
+  const primary = primaryField(fields, data.title);
   return (
     <>
       <div className="app-title-row">
@@ -39,14 +46,29 @@ export default async function ApprovedSource({
       </div>
       <article className="workspace-card">
         {Array.isArray(data.custom_fields) && data.custom_fields.length ? (
-          <dl className="gateway-field-list">
-            {(data.custom_fields as GatewayField[]).map((field) => (
-              <div key={field.id}>
-                <dt>{field.label}</dt>
-                <dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{field.value}</dd>
-              </div>
-            ))}
-          </dl>
+          <>
+            {primary && (
+              <dl className="gateway-field-list">
+                <div>
+                  <dt>{primary.label}</dt>
+                  <dd>{primary.value || "—"}</dd>
+                </div>
+              </dl>
+            )}
+            <details>
+              <summary>Inspect all documented fields</summary>
+              <dl className="gateway-field-list">
+                {fields.map((field) => (
+                  <div key={field.id}>
+                    <dt>{field.label}</dt>
+                    <dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                      {field.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          </>
         ) : (
           <p className="knowledge-body" style={{ whiteSpace: "pre-wrap" }}>
             {data.body}

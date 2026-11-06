@@ -1,6 +1,8 @@
 import "server-only";
 import { requireWorkspace } from "@/lib/session";
 import type { ApprovedLearningSource } from "./curriculum";
+import { readFieldLabels } from "@/lib/knowledge/field-label-reader";
+import { needsFieldLabels } from "@/lib/knowledge/field-labels";
 
 export async function loadStudyGuide(courseId: string, edition?: string) {
   const ws = await requireWorkspace();
@@ -34,10 +36,21 @@ export async function loadStudyGuide(courseId: string, edition?: string) {
     throw Error(
       "Your revision guide could not be loaded. Verify the approved guide migration or retry later.",
     );
+  const unitRows = (units.data ?? []) as ApprovedLearningSource[];
+  const labels = await readFieldLabels(
+    ws.client,
+    ws.organization.id,
+    unitRows
+      .filter((u) => needsFieldLabels(u.source_fields))
+      .flatMap((u) => (u.source_knowledge_id ? [u.source_knowledge_id] : [])),
+  );
   return {
     courseId,
     revision: revision.data as { id: string; title: string; number: number; published_at: string },
     savedAt: marker.data?.created_at as string | undefined,
-    units: (units.data ?? []) as ApprovedLearningSource[],
+    units: unitRows.map((u) => ({
+      ...u,
+      field_labels: u.source_knowledge_id ? labels[u.source_knowledge_id] : undefined,
+    })),
   };
 }

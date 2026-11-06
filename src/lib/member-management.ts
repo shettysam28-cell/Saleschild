@@ -1,14 +1,31 @@
 import "server-only";
 import { requireUser, requireWorkspace } from "@/lib/session";
 import type { AccountSettingsData, MemberSummary } from "@/lib/member-types";
+import { memberAuthAdminConfigured } from "@/lib/supabase/member-auth-admin";
 
 export function memberProvisioningReadiness() {
-  // Preparing the policy is not approval to activate it. This gate deliberately
-  // remains closed even if an administrator supplies an Auth key prematurely.
+  if (!memberAuthAdminConfigured())
+    return {
+      available: false,
+      reason:
+        "Add Member requires secure server-side Auth administration. Ask your administrator to complete account setup. No invitation or email will be sent.",
+    };
+  if (process.env.MEMBER_VERIFICATION_EMAIL_ENABLED !== "true")
+    return {
+      available: false,
+      reason:
+        "Add Member is waiting for the approved member-requested verified-email activation workflow. Email ownership remains required; no automatic invitation will be sent.",
+    };
+  if (process.env.MEMBER_PROVISIONING_ENABLED !== "true")
+    return {
+      available: false,
+      reason:
+        "Add Member is waiting for the approved activation migration and hosted security checks. Account creation remains unavailable until your administrator enables it.",
+    };
   return {
-    available: false,
+    available: true,
     reason:
-      "Add Member is blocked: secure Auth administration is not configured and a verified-email activation workflow has not been verified. Email ownership remains required. No invitation or email will be sent.",
+      "Members request their own verification email, change the temporary password, and sign in again before workspace access is activated. Invitations are copied manually.",
   };
 }
 

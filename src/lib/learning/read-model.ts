@@ -2,6 +2,8 @@ import "server-only";
 import { requireWorkspace } from "@/lib/session";
 import { canAdmin, canAuthor } from "@/lib/permissions";
 import type { ApprovedLearningSource, LearningProgress } from "./curriculum";
+import { readFieldLabels } from "@/lib/knowledge/field-label-reader";
+import { needsFieldLabels } from "@/lib/knowledge/field-labels";
 
 export type LearningRevision = {
   id: string;
@@ -44,10 +46,20 @@ export async function loadLearningWorkspace(courseId: string): Promise<LearningW
     units?: ApprovedLearningSource[];
     progress?: LearningProgress[];
   };
+  const labels = await readFieldLabels(
+    ws.client,
+    ws.organization.id,
+    (result.units ?? [])
+      .filter((u) => needsFieldLabels(u.source_fields))
+      .flatMap((u) => (u.source_knowledge_id ? [u.source_knowledge_id] : [])),
+  );
   return {
     ...base,
     revision: result.revision,
-    units: result.units ?? [],
+    units: (result.units ?? []).map((u) => ({
+      ...u,
+      field_labels: u.source_knowledge_id ? labels[u.source_knowledge_id] : undefined,
+    })),
     progress: base.author ? [] : (result.progress ?? []),
   };
 }

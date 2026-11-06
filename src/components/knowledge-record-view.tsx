@@ -2,12 +2,15 @@ import Link from "next/link";
 import { GatewayRecordEditor } from "./gateway-record-editor";
 import { KnowledgeEditor } from "./knowledge-editor";
 import type { loadKnowledgeRecord } from "@/lib/knowledge/record";
+import { displayFields, primaryField } from "@/lib/knowledge/field-labels";
 export function KnowledgeRecordView({
   data,
 }: {
   data: NonNullable<Awaited<ReturnType<typeof loadKnowledgeRecord>>>;
 }) {
   const { record, source, versions, author, admin } = data;
+  const fields = displayFields(record.custom_fields, data.fieldLabels);
+  const primary = primaryField(fields, record.title);
   return (
     <>
       <Link className="text-link" href="/app/knowledge">
@@ -24,14 +27,27 @@ export function KnowledgeRecordView({
       <article className="workspace-card">
         <h2>Saved knowledge</h2>
         {record.custom_fields.length ? (
-          <dl className="gateway-field-list">
-            {record.custom_fields.map((f) => (
-              <div key={f.id}>
-                <dt>{f.label}</dt>
-                <dd>{f.value || "—"}</dd>
-              </div>
-            ))}
-          </dl>
+          <>
+            {primary && (
+              <dl className="gateway-field-list">
+                <div>
+                  <dt>{primary.label}</dt>
+                  <dd>{primary.value || "—"}</dd>
+                </div>
+              </dl>
+            )}
+            <details>
+              <summary>Inspect all documented fields</summary>
+              <dl className="gateway-field-list">
+                {fields.map((f) => (
+                  <div key={f.id}>
+                    <dt>{f.label}</dt>
+                    <dd>{f.value || "—"}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
+          </>
         ) : (
           <p className="knowledge-body">{record.body}</p>
         )}
@@ -59,7 +75,7 @@ export function KnowledgeRecordView({
             Source SHA-256: {String(source.origin.digest ?? "available in the upload audit")}
           </p>
           <dl className="gateway-field-list">
-            {source.original_fields.map((f) => (
+            {displayFields(source.original_fields, data.fieldLabels).map((f) => (
               <div key={f.id}>
                 <dt>{f.label}</dt>
                 <dd>{f.value || "—"}</dd>

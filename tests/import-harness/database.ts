@@ -13,6 +13,9 @@ export async function initialize() {
     .filter((f) => f.endsWith(".sql"))
     .sort())
     await db.exec(await readFile("supabase/migrations/" + name, "utf8"));
+  await db.exec(
+    await readFile("supabase/proposals/phase22_member_activation_and_field_labels.sql", "utf8"),
+  );
   for (const [i, name] of ["owner-a", "owner-b", "learner-a", "editor-a", "learner-b"].entries()) {
     const user = `00000000-0000-4000-8000-00000000000${i + 1}`;
     await db.query("insert into auth.users values($1,now())", [user]);
@@ -56,6 +59,7 @@ export async function withIdentity<T>(name: string, work: () => Promise<T>): Pro
   }
 }
 const rpcKeys: Record<string, string[]> = {
+  read_knowledge_field_labels: ["org_id", "knowledge_ids"],
   check_knowledge_import: ["org_id", "records"],
   import_knowledge_records_v2: ["org_id", "request_id", "source_name", "records", "source_context"],
   stage_gateway_upload: [
@@ -230,12 +234,18 @@ export async function requireWorkspace() {
     rpc: async (name: string, args: Record<string, unknown>) => {
       const keys = rpcKeys[name];
       if (!keys) throw Error("Unexpected fixture RPC");
-      const rows = ["read_learning_progress", "search_approved_knowledge"].includes(name);
+      const rows = [
+        "read_learning_progress",
+        "search_approved_knowledge",
+        "read_knowledge_field_labels",
+      ].includes(name);
       const call = `public.${name}(${keys.map((_, i) => "$" + (i + 1)).join(",")})`;
       const result = await query(
         rows ? `select * from ${call}` : `select ${call} result`,
         keys.map((k) =>
-          ["source_ids", "expected_lesson_ids"].includes(k) ? args[k] : bound(args[k]),
+          ["source_ids", "expected_lesson_ids", "knowledge_ids"].includes(k)
+            ? args[k]
+            : bound(args[k]),
         ),
       );
       return { ...result, data: rows ? result.data : (result.data?.[0]?.result ?? null) };

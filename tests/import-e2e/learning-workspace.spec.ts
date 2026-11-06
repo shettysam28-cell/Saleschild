@@ -93,7 +93,7 @@ test("official XLSX reaches published learning, member checkpoint, resume and te
       .check();
   await page.getByRole("button", { name: "Add 2 approved resources", exact: true }).click();
   const ownerPreview = page.locator(".learning-experience");
-  await expect(ownerPreview.getByRole("heading", { name: "Owner lesson preview" })).toBeVisible();
+  await expect(ownerPreview.getByRole("heading", { name: "Preview as learner" })).toBeVisible();
   let ownerProgressWrites = 0;
   page.on("request", (request) => {
     if (request.url().endsWith("/action/learning-progress")) ownerProgressWrites++;

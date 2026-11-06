@@ -145,7 +145,7 @@ function ProvisionMemberForm({
             </p>
             <CopyValue
               value={() =>
-                `Your Saleschild account has been prepared. Visit ${window.location.origin}/login and use the email your organization owner registered. Your temporary passcode is shared separately. Email verification and first-login setup are required.`
+                `Your Saleschild account has been prepared. Visit ${window.location.origin}/member-verification to request an email confirmation, then sign in at ${window.location.origin}/login with your registered email. Your temporary passcode is shared separately. After verifying your email, change the temporary password and sign in again to activate your learning workspace.`
               }
             >
               Copy invitation

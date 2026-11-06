@@ -22,12 +22,13 @@ export async function proxy(request: NextRequest) {
     });
   let response = NextResponse.next({ request });
   const privatePath =
-    /^\/(app(?:\/|$)|home$|onboarding|member-setup|access-unavailable|auth(?:\/|$)|login|register|forgot-password|reset-password)/.test(
+    /^\/(app(?:\/|$)|home$|onboarding|member-setup|member-verification|member-confirmed|access-unavailable|auth(?:\/|$)|login|register|forgot-password|reset-password)/.test(
       path,
     );
   if (!privatePath) return response;
   response.headers.set("Cache-Control", "private, no-store, max-age=0");
   response.headers.set("X-Robots-Tag", "noindex, nofollow");
+  if (path === "/member-confirmed") response.headers.set("Referrer-Policy", "no-referrer");
   const config = supabaseConfig();
   if (!config) {
     if (path === "/app" || path.startsWith("/app/") || path === "/onboarding") {
@@ -53,6 +54,7 @@ export async function proxy(request: NextRequest) {
           );
         response.headers.set("Cache-Control", "private, no-store, max-age=0");
         response.headers.set("X-Robots-Tag", "noindex, nofollow");
+        if (path === "/member-confirmed") response.headers.set("Referrer-Policy", "no-referrer");
       },
     },
   });

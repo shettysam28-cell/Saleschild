@@ -136,7 +136,10 @@ export function WorkspaceAnalytics({
                 {!chart.length ? (
                   <p>
                     No eligible learning activity matches these filters. Publish a path and let
-                    members complete meaningful actions to build an evidence-based view.
+                    members complete meaningful actions to build an evidence-based view.{" "}
+                    <Link href="/app/learning">Review learning paths</Link>
+                    {" · "}
+                    <Link href="/app/settings#member-management-title">Review member setup</Link>
                   </p>
                 ) : (
                   <>
@@ -236,7 +239,11 @@ export function WorkspaceAnalytics({
                     </table>
                   </div>
                 ) : (
-                  <p>No path detail to show.</p>
+                  <p>
+                    No published path is available for these filters.{" "}
+                    <Link href="/app/learning">Review or publish a learning path</Link>, or{" "}
+                    <Link href="/app/analytics">reset the filters</Link>.
+                  </p>
                 )}
               </section>
             </>

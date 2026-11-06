@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { GatewayField } from "@/lib/knowledge/gateway-model";
+import { displayFields, primaryField, type FieldLabels } from "@/lib/knowledge/field-labels";
 export type KnowledgeTab = "import" | "drafts" | "library";
 export function KnowledgeNavigation({ tab }: { tab: KnowledgeTab }) {
   return (
@@ -29,6 +31,8 @@ export type LibraryRecord = {
   current_version: number;
   source_url?: string | null;
   evidence_status?: string;
+  custom_fields?: GatewayField[];
+  field_labels?: FieldLabels;
 };
 export function KnowledgeLibrary({
   records,
@@ -81,7 +85,15 @@ export function KnowledgeLibrary({
                 </h3>
                 <span className="record-badge">Published · version {record.current_version}</span>
                 <p className="knowledge-body">
-                  {record.body.length > 360 ? record.body.slice(0, 360) + "…" : record.body}
+                  {(() => {
+                    const preview = record.custom_fields?.length
+                      ? (primaryField(
+                          displayFields(record.custom_fields, record.field_labels),
+                          record.title,
+                        )?.value ?? record.body)
+                      : record.body;
+                    return preview.length > 360 ? preview.slice(0, 360) + "…" : preview;
+                  })()}
                 </p>
                 <Link className="text-link" href={`/app/knowledge/${record.id}`}>
                   View knowledge and provenance

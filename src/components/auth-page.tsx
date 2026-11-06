@@ -71,6 +71,12 @@ export function AuthPage({
         </div>
       )}
       <AuthForm mode={mode} available={available} next={next} />
+      {mode === "login" && process.env.MEMBER_VERIFICATION_EMAIL_ENABLED === "true" && (
+        <p className="auth-switch">
+          Owner prepared your member account?{" "}
+          <Link href="/member-verification">Verify your email</Link> first.
+        </p>
+      )}
       <div className="auth-switch">
         {mode === "login" ? (
           <>

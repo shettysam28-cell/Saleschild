@@ -4930,6 +4930,48 @@ html[data-workspace-theme="dark"]
   }
 }
 /* Knowledge and learning use the existing workspace surfaces and palette. */
+.app-shell .gateway-upload input[type="file"]::file-selector-button {
+  background: var(--forest, #1c513c);
+  color: #fffdf7;
+  border: 0;
+  border-radius: 7px;
+  font: inherit;
+  font-weight: 600;
+  min-height: 44px;
+  margin-right: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  .app-sidebar .org-label {
+    position: static;
+    max-width: none;
+    min-width: 0;
+    font-size: 12px;
+  }
+  .app-sidebar .org-label small {
+    font-size: 10px;
+  }
+  .app-navigation {
+    padding-inline: 8px;
+  }
+  .app-navigation[data-overflow-start="true"] {
+    mask-image: linear-gradient(90deg, transparent, #000 12px);
+  }
+  .app-navigation[data-overflow-end="true"] {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 12px), transparent);
+  }
+  .app-navigation[data-overflow-start="true"][data-overflow-end="true"] {
+    mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+  }
+  .app-topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .app-shell .gateway-upload input[type="file"] {
+    font-size: 16px;
+  }
+}
 .app-shell .knowledge-navigation {
   display: flex;
   flex-wrap: wrap;

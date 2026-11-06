@@ -2,6 +2,7 @@ import "server-only";
 import { requireWorkspace } from "@/lib/session";
 import { canAuthor, canAdmin } from "@/lib/permissions";
 import type { EditableKnowledge } from "@/components/gateway-record-editor";
+import { readFieldLabels } from "./field-label-reader";
 export async function loadKnowledgeRecord(id: string) {
   const ws = await requireWorkspace();
   const { data, error } = await ws.client
@@ -33,6 +34,7 @@ export async function loadKnowledgeRecord(id: string) {
     : { data: [], error: null };
   if (source.error || versions.error) throw Error("Source history could not be loaded.");
   return {
+    fieldLabels: (await readFieldLabels(ws.client, ws.organization.id, [id]))[id],
     record: data as EditableKnowledge & { source_url: string | null },
     source: source.data as {
       origin: Record<string, unknown>;

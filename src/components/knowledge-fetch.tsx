@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { fetchKnowledge, type FetchResult } from "@/app/app/fetch-actions";
 
@@ -9,7 +9,21 @@ export function KnowledgeFetch({ suggestions = [] }: { suggestions?: string[] })
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<FetchResult>();
   const [citationsOpen, setCitationsOpen] = useState(false);
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
+  const requestId = useRef(0);
+  useEffect(
+    () => () => {
+      requestId.current++;
+    },
+    [],
+  );
+  function editQuery(value: string) {
+    requestId.current++;
+    setQuery(value);
+    setResult(undefined);
+    setPending(false);
+    setCitationsOpen(false);
+  }
   const input = useRef<HTMLInputElement>(null);
   const id = useId();
   return (
@@ -26,20 +40,27 @@ export function KnowledgeFetch({ suggestions = [] }: { suggestions?: string[] })
         knowledge, with sources you can check.
       </p>
       <form
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
           if (pending) return;
-          start(async () => {
-            try {
-              setResult(await fetchKnowledge(query));
-            } catch {
+          const id = ++requestId.current;
+          const submitted = query;
+          setResult(undefined);
+          setCitationsOpen(false);
+          setPending(true);
+          try {
+            const answer = await fetchKnowledge(submitted);
+            if (id === requestId.current) setResult(answer);
+          } catch {
+            if (id === requestId.current)
               setResult({
                 error: true,
                 message:
                   "The connection was interrupted. Your question was not saved; please try again.",
               });
-            }
-          });
+          } finally {
+            if (id === requestId.current) setPending(false);
+          }
         }}
       >
         <label className="form-field">
@@ -47,9 +68,8 @@ export function KnowledgeFetch({ suggestions = [] }: { suggestions?: string[] })
           <input
             ref={input}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => editQuery(event.target.value)}
             minLength={2}
-            disabled={pending}
             maxLength={200}
             required
             placeholder="Search a topic, process or question…"
@@ -64,9 +84,8 @@ export function KnowledgeFetch({ suggestions = [] }: { suggestions?: string[] })
           {suggestedSearches.map((suggestion) => (
             <button
               key={suggestion}
-              disabled={pending}
               onClick={() => {
-                setQuery(suggestion.slice(0, 200));
+                editQuery(suggestion.slice(0, 200));
                 input.current?.focus();
               }}
             >
@@ -74,6 +93,11 @@ export function KnowledgeFetch({ suggestions = [] }: { suggestions?: string[] })
             </button>
           ))}
         </div>
+      )}
+      {pending && (
+        <p role="status">
+          Searching approved knowledge… You can edit your question to start a new search.
+        </p>
       )}
       {result && (
         <div className="fetch-results" aria-busy={pending}>
