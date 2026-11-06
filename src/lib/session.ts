@@ -50,17 +50,13 @@ export const requireWorkspace = cache(async () => {
     });
     if (current.error || current.data !== true) redirect("/login?notice=fresh-login-required");
   }
-  const { data: organization, error: orgError } = await client
-    .from("organizations")
-    .select("id,name")
-    .eq("id", membership.organization_id)
-    .single();
-  if (orgError || !organization) throw new Error("Organization access could not be verified.");
-  const { data: profile, error: profileError } = await client
-    .from("profiles")
-    .select("display_name")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [orgResult, profileResult] = await Promise.all([
+    client.from("organizations").select("id,name").eq("id", membership.organization_id).single(),
+    client.from("profiles").select("display_name").eq("user_id", user.id).maybeSingle(),
+  ]);
+  const { data: organization, error: orgError } = orgResult;
+  const { data: profile, error: profileError } = profileResult;
+  if (orgError || !organization) throw Error("Organization access could not be verified.");
   if (profileError) throw new Error("Your account details could not be loaded.");
   return {
     client,

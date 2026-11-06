@@ -2,13 +2,13 @@ import "server-only";
 import { extractSpreadsheet } from "./spreadsheet-extraction";
 import { extractDocx } from "./docx";
 import { fail } from "./diagnostics";
-import { MAX_FILE_BYTES } from "./readiness";
+import { GATEWAY_FORMATS, MAX_FILE_BYTES } from "./upload-contract";
 import type { GatewayExtraction } from "./gateway-model";
 export async function extractGateway(file: File): Promise<GatewayExtraction> {
   if (!file.size) fail("EMPTY_FILE", "Choose a non-empty CSV, XLSX or DOCX source.");
   if (file.size > MAX_FILE_BYTES) fail("FILE_LIMIT", "Choose a file no larger than 2 MiB.");
   const format = file.name.split(".").at(-1)?.toLowerCase();
-  if (!["csv", "xlsx", "docx"].includes(format ?? ""))
+  if (!(GATEWAY_FORMATS as readonly string[]).includes(format ?? ""))
     fail(
       "FILE_TYPE",
       "Choose CSV, XLSX or DOCX. PowerPoint, PDF, DOC and image extraction are not supported.",

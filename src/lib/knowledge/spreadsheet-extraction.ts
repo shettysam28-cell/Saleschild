@@ -7,7 +7,12 @@ import { zipSync } from "fflate";
 import { canonicalOOXML } from "./ooxml";
 import { readOfficeArchive } from "./office-archive";
 import { fail, ImportError, diagnostic, type ImportDiagnostic } from "./diagnostics";
-import { MAX_FILE_BYTES } from "./readiness";
+import {
+  MAX_FILE_BYTES,
+  MAX_REVIEW_ROWS,
+  MAX_COLUMNS,
+  SPREADSHEET_FORMATS,
+} from "./upload-contract";
 export type ExtractedSheet = {
   name: string;
   rows: { row: number; cells: string[] }[];
@@ -16,11 +21,14 @@ export type ExtractedSheet = {
 export type SpreadsheetExtraction = { name: string; sheets: ExtractedSheet[] };
 function validateExtractedRows(rows: ExtractedSheet["rows"], worksheet: string) {
   const populated = rows.filter((r) => r.cells.some((c) => c.trim()));
-  if (populated.length > 251)
+  if (populated.length > MAX_REVIEW_ROWS + 1)
     fail(
       "ROW_LIMIT",
-      "Use at most 250 populated source rows plus a header; select at most 200 records for saving.",
-      { worksheet, row: populated[251].row },
+      `Use at most ${MAX_REVIEW_ROWS} populated review rows plus a header; save at most 200 knowledge records.`,
+      {
+        worksheet,
+        row: populated[MAX_REVIEW_ROWS + 1].row,
+      },
     );
   for (const r of rows) {
     if (r.row > 10000)
@@ -28,7 +36,7 @@ function validateExtractedRows(rows: ExtractedSheet["rows"], worksheet: string) 
         worksheet,
         row: r.row,
       });
-    if (r.cells.slice(32).some((v) => v.trim()))
+    if (r.cells.slice(MAX_COLUMNS).some((v) => v.trim()))
       fail("COLUMN_LIMIT", "Use at most 32 populated columns.", {
         worksheet,
         row: r.row,
@@ -66,7 +74,7 @@ export async function extractSpreadsheet(file: File): Promise<SpreadsheetExtract
     fail("EMPTY_FILE", "The selected file is empty. Add a header and knowledge records first.");
   if (file.size > MAX_FILE_BYTES) fail("FILE_LIMIT", "Choose a file no larger than 2 MiB.");
   const extension = file.name.split(".").at(-1)?.toLowerCase();
-  if (!["csv", "xlsx"].includes(extension ?? ""))
+  if (!(SPREADSHEET_FORMATS as readonly string[]).includes(extension ?? ""))
     fail(
       "FILE_TYPE",
       "Choose .csv or .xlsx. PDF, DOCX, XLS and macro-enabled workbooks are not supported.",
@@ -191,7 +199,8 @@ export async function extractSpreadsheet(file: File): Promise<SpreadsheetExtract
               const location = { worksheet, row: row.number, column: cell.address, worksheets };
               const value = cell.value;
               if (value == null || (typeof value === "string" && !value.trim())) return;
-              if (index > 32) fail("COLUMN_LIMIT", "Use at most 32 populated columns.", location);
+              if (index > MAX_COLUMNS)
+                fail("COLUMN_LIMIT", "Use at most 32 populated columns.", location);
               if (typeof value === "string" || typeof value === "boolean")
                 cells[index - 1] = String(value);
               else if (typeof value === "number") {

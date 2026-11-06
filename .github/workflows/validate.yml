@@ -28,4 +28,11 @@ jobs:
       - run: npm run test:e2e
       - run: npm run test:import:e2e
       - run: npm audit --audit-level=high
-    # Deliberately no publish job. First public deployment requires user approval.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-evidence-${{ github.sha }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+    # Publication is handled by the CI-gated Netlify production build.

@@ -59,7 +59,7 @@ describe("member lifecycle server action boundary", () => {
       form({ name: "Member", email: "member@example.test", operation_id: memberId }),
     );
     expect(result.error).toBe(true);
-    expect(result.message).toContain("approved identity verification");
+    expect(result.message).toContain("verified-email activation");
     expect((await resetMemberPasscode({}, form({ user_id: memberId }))).error).toBe(true);
     expect(provider).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();

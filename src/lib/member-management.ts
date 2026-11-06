@@ -8,7 +8,7 @@ export function memberProvisioningReadiness() {
   return {
     available: false,
     reason:
-      "New member provisioning is awaiting approved identity verification and secure account setup. No invitation or email will be sent.",
+      "Add Member is blocked: secure Auth administration is not configured and a verified-email activation workflow has not been verified. Email ownership remains required. No invitation or email will be sent.",
   };
 }
 

@@ -221,7 +221,7 @@ describe("approved source Fetch", () => {
       ],
       error: null,
     });
-    const result = await fetchKnowledge("markup");
+    const result = await fetchKnowledge("untrusted");
     expect(result.results?.[0].excerpt).toHaveLength(601);
     expect(result.results?.[0].title).toBe("<script>untrusted</script>");
   });

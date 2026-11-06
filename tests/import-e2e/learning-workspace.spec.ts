@@ -93,29 +93,38 @@ test("official XLSX reaches published learning, member checkpoint, resume and te
       .check();
   await page.getByRole("button", { name: "Add 2 approved resources", exact: true }).click();
   const ownerPreview = page.locator(".learning-experience");
-  await expect(
-    ownerPreview.getByRole("heading", { name: "Owner Spectator preview" }),
-  ).toBeVisible();
+  await expect(ownerPreview.getByRole("heading", { name: "Owner lesson preview" })).toBeVisible();
   let ownerProgressWrites = 0;
   page.on("request", (request) => {
     if (request.url().endsWith("/action/learning-progress")) ownerProgressWrites++;
   });
   await ownerPreview
-    .getByRole("button", { name: "Continue to source checkpoint", exact: true })
+    .getByRole("button", { name: "Continue to knowledge check", exact: true })
     .click();
   await expect(
-    ownerPreview.getByRole("button", { name: "Complete source checkpoint", exact: true }),
+    ownerPreview.getByRole("button", { name: "Complete knowledge check", exact: true }),
   ).toHaveCount(0);
   await page.getByLabel("I have reviewed the source coverage and the learning preview.").check();
-  await page.getByRole("button", { name: "Publish learning revision", exact: true }).click();
+  await page.getByRole("button", { name: "Publish learning path", exact: true }).click();
   await expect(
-    page.getByText("Published revision 1 preserves 2 source units.", { exact: false }),
+    page.getByText("Published edition 1 includes 2 lessons.", { exact: false }),
   ).toBeVisible();
   expect(ownerProgressWrites).toBe(0);
   const before = await data(page, "/progress-data");
   expect(before.error).toBeUndefined();
   const pathBefore = before.rows.find((row: { course_id: string }) => row.course_id === pathId);
   expect(pathBefore).toMatchObject({ completed_units: 0, total_units: 2, started_at: null });
+  await page.getByRole("button", { name: "Create revision guide", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Your revision guide is saved" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Open revision guide", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Key concepts", exact: true })).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Review cards", exact: true })).toHaveCount(2);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Key concepts", exact: true })).toHaveCount(2);
+  await evidence(page, info, "saved-revision-guide");
+  await page.goto(pathUrl);
   await evidence(page, info, "owner-spectator");
   const groups = await data(page, "/draft-data");
   const protectedGroup = groups.groups.find((group: { records: { title: string }[] }) =>
@@ -142,7 +151,7 @@ test("official XLSX reaches published learning, member checkpoint, resume and te
   await page.request.get("/fixture/learner-a");
   await page.goto(pathUrl);
   const member = page.locator(".learning-experience");
-  await expect(member.getByRole("heading", { name: "Your learning workspace" })).toBeVisible();
+  await expect(member.getByRole("heading", { name: "Your learning path" })).toBeVisible();
   await expect(
     page
       .getByRole("navigation", { name: "Workspace", exact: true })
@@ -158,15 +167,26 @@ test("official XLSX reaches published learning, member checkpoint, resume and te
   await page.reload();
   saved = await data(page, `/learning-data?id=${pathId}`);
   expect(saved.progress).toEqual([]);
-  await member.getByRole("button", { name: "Start unit", exact: true }).click();
+  await page.getByRole("button", { name: "Create revision guide", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Your revision guide is saved" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Open revision guide", exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Review cards", exact: true })).toHaveCount(2);
+  expect((await data(page, `/learning-data?id=${pathId}`)).progress).toEqual([]);
+  await page.goto(pathUrl);
+  await member.getByRole("button", { name: "Start lesson", exact: true }).click();
   await expect(member.getByRole("status").filter({ hasText: "Your place is saved" })).toBeVisible();
-  await member.getByRole("button", { name: "Continue to source checkpoint", exact: true }).click();
+  await expect(member).toHaveCount(1);
+  await expect(
+    member.getByRole("button", { name: "Continue to knowledge check", exact: true }),
+  ).toHaveCount(1);
+  await member.getByRole("button", { name: "Continue to knowledge check", exact: true }).click();
   await member.getByRole("button", { name: "Save my place", exact: true }).click();
   await expect(member.getByRole("status").filter({ hasText: "Your place is saved" })).toBeVisible();
   await page.reload();
-  await expect(
-    member.getByRole("heading", { name: "Source checkpoint — confirms engagement, not mastery" }),
-  ).toBeVisible();
+  await expect(member.getByRole("heading", { name: "Knowledge check", exact: true })).toBeVisible();
   const wrong = member.getByRole("radio").filter({ hasText: "" });
   const wrongValue = await wrong.evaluateAll(
     (nodes, correct) => (nodes as HTMLInputElement[]).find((node) => node.value !== correct)?.value,
@@ -174,12 +194,12 @@ test("official XLSX reaches published learning, member checkpoint, resume and te
   );
   expect(wrongValue).toBeTruthy();
   await member.getByRole("radio", { name: wrongValue!, exact: true }).check();
-  await member.getByRole("button", { name: "Complete source checkpoint", exact: true }).click();
+  await member.getByRole("button", { name: "Complete knowledge check", exact: true }).click();
   await expect(member.getByRole("alert")).toContainText("Review the approved source");
   await member.getByRole("radio", { name: titles[0], exact: true }).check();
-  await member.getByRole("button", { name: "Complete source checkpoint", exact: true }).click();
+  await member.getByRole("button", { name: "Complete knowledge check", exact: true }).click();
   await expect(
-    member.getByRole("status").filter({ hasText: "Source checkpoint passed" }),
+    member.getByRole("status").filter({ hasText: "Knowledge check passed" }),
   ).toBeVisible();
   saved = await data(page, `/learning-data?id=${pathId}`);
   const completed = saved.progress[0];
@@ -194,16 +214,14 @@ test("official XLSX reaches published learning, member checkpoint, resume and te
     evidence: titles[0],
   });
   expect(replay.progress.completed_at).toBe(completed.completed_at);
-  await member.getByRole("button", { name: "Explore next unit", exact: true }).click();
-  await member.getByRole("button", { name: "Continue to source checkpoint", exact: true }).click();
+  await member.getByRole("button", { name: "Next lesson", exact: true }).click();
+  await member.getByRole("button", { name: "Continue to knowledge check", exact: true }).click();
   await member.getByRole("button", { name: "Save my place", exact: true }).click();
   await page.reload();
   await expect(
     member.getByRole("heading", { level: 3, name: titles[1], exact: true }),
   ).toBeVisible();
-  await expect(
-    member.getByRole("heading", { name: "Source checkpoint — confirms engagement, not mastery" }),
-  ).toBeVisible();
+  await expect(member.getByRole("heading", { name: "Knowledge check", exact: true })).toBeVisible();
   await expect(
     member.getByRole("status").filter({ hasText: "1 of 2 eligible units completed" }),
   ).toBeVisible();
@@ -251,23 +269,21 @@ test("Draft Manager resumes an upload and safely discards saved drafts after a l
   await expect(
     page.getByRole("heading", { name: `Review ${filename}`, exact: true }),
   ).toBeVisible();
-  await page.goto("/app/knowledge");
+  await page.goto("/app/knowledge?view=drafts");
   const manager = page.getByRole("region", { name: "Draft Manager", exact: true });
-  let group = manager
-    .locator("details")
-    .filter({ has: page.locator("summary").filter({ hasText: filename }) });
-  await group.locator("summary").click();
+  await expect(
+    page.getByRole("heading", { name: "Resume a private review", exact: true }),
+  ).toHaveCount(0);
+  let group = manager.locator(".draft-group").filter({ hasText: filename });
   await group.getByRole("link", { name: "Resume review", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: `Review ${filename}`, exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Save 1 draft records", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your drafts are saved." })).toBeVisible();
-  group = manager
-    .locator("details")
-    .filter({ has: page.locator("summary").filter({ hasText: filename }) });
-  await expect(group.locator("summary")).toContainText("1 drafts");
-  await group.locator("summary").click();
+  await page.goto("/app/knowledge?view=drafts");
+  group = manager.locator(".draft-group").filter({ hasText: filename });
+  await expect(group).toContainText("1 drafts");
   await expect(group.getByRole("link").filter({ hasText: title })).toBeVisible();
   await group.getByRole("button", { name: "Discard draft group", exact: true }).click();
   let interrupted = false;
@@ -282,11 +298,11 @@ test("Draft Manager resumes an upload and safely discards saved drafts after a l
   await expect(manager.getByRole("status")).toContainText("Connection interrupted");
   await group.getByRole("button", { name: "Confirm discard", exact: true }).click();
   await expect(manager.getByRole("status")).toContainText("Draft group discarded");
-  await expect(group.locator("summary")).toContainText("1 discarded");
-  await expect(page.locator('[aria-label="Saved knowledge"]')).not.toContainText(title);
+  await expect(group).toContainText("1 discarded");
+  await expect(group.getByRole("link").filter({ hasText: title })).toHaveCount(0);
   await page.reload();
   await expect(manager).toContainText("1 discarded");
-  await expect(page.locator('[aria-label="Saved knowledge"]')).not.toContainText(title);
+  await expect(group.getByRole("link").filter({ hasText: title })).toHaveCount(0);
   await evidence(page, info, "draft-manager-discard");
 });
 
@@ -303,6 +319,7 @@ test("workspace appearance and grounded Fetch work with keyboard, reload and red
   await page.getByRole("radio", { name: "Dark", exact: true }).check();
   await expect(page.locator("html")).toHaveAttribute("data-workspace-theme", "dark");
   await evidence(page, info, "workspace-dark-menu");
+  expect((await new AxeBuilder({ page }).include(".app-shell").analyze()).violations).toEqual([]);
   await page.keyboard.press("Escape");
   await expect(account).toBeFocused();
   await expect(account).toHaveAttribute("aria-expanded", "false");
@@ -325,7 +342,7 @@ test("workspace appearance and grounded Fetch work with keyboard, reload and red
   expect(searches).toBe(0);
   await page.getByRole("button", { name: "Fetch knowledge", exact: true }).click();
   await expect(page.locator(".fetch-results").getByRole("status")).toContainText(
-    /Matching excerpts|No matching approved/,
+    /Answer extracted|No matching approved/,
   );
   await query.fill("absent-unique-factual-needle-8675309");
   await page.getByRole("button", { name: "Fetch knowledge", exact: true }).click();
@@ -340,4 +357,51 @@ test("workspace appearance and grounded Fetch work with keyboard, reload and red
   await page.reload();
   await expect(query).toHaveValue("");
   await expect(page.locator(".fetch-results")).toHaveCount(0);
+});
+
+test("keyword and natural-question Fetch presents grounded answers with expandable version citations", async ({
+  page,
+}, info) => {
+  await page.request.get("/fixture/owner-a");
+  const title = `Refund guidance ${info.project.name}`;
+  await page.goto("/app/knowledge");
+  await page.getByLabel("Choose a knowledge source").setInputFiles({
+    name: `fictional-refund-${info.project.name}.csv`,
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      `Topic,Process Steps,Knowledge Content\r\n${title},Submit the fictional refund form to the sample support lead.,Fictional refunds require the sample receipt.\r\n`,
+    ),
+  });
+  await expect(
+    page.getByRole("heading", {
+      name: `Review fictional-refund-${info.project.name}.csv`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Save 1 draft records", exact: true }).click();
+  await page.getByRole("link", { name: /Review saved resource/ }).click();
+  await page.getByRole("button", { name: "Approve and publish", exact: true }).click();
+  await expect(page.locator(".app-title-row")).toContainText("published");
+  const sourceId = new URL(page.url()).pathname.split("/").at(-1)!;
+  const approvedVersion = (await data(page, "/record-data?id=" + sourceId)).record.current_version;
+  expect(approvedVersion).toBeGreaterThan(1);
+  await page.goto("/app/knowledge?view=library");
+  await expect(page.getByRole("link", { name: title, exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Draft Manager", exact: true })).toHaveCount(0);
+  await page.goto("/app");
+  await page.getByLabel("What would you like to find?").fill("How do I request a refund?");
+  await page.getByRole("button", { name: "Fetch knowledge", exact: true }).click();
+  const result = page.locator(".fetch-results");
+  await expect(result.getByRole("heading", { name: "Answer", exact: true })).toBeVisible();
+  await expect(result).toContainText("sample support lead");
+  await expect(result.locator(".answer-citations")).not.toHaveAttribute("open");
+  await result.getByRole("link", { name: "Read supporting citation", exact: true }).click();
+  await expect(result.locator(".answer-citations")).toHaveAttribute("open");
+  await expect(
+    result
+      .getByRole("link", { name: `Open approved source · version ${approvedVersion}`, exact: true })
+      .first(),
+  ).toBeVisible();
+  await expect(result.locator("blockquote").first()).toContainText("fictional refund form");
+  await evidence(page, info, "grounded-answer-citations");
 });

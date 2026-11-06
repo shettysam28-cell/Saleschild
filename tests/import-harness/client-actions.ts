@@ -23,6 +23,7 @@ export const addApprovedKnowledge = (input: unknown) => send("path-add", payload
 export const publishLearningRevision = (input: unknown) => send("learning-publish", payload(input));
 export const beginLearningRevision = (input: unknown) => send("learning-draft", payload(input));
 export const recordLearningProgress = (input: unknown) => send("learning-progress", payload(input));
+export const createRevisionGuide = (input: unknown) => send("guide-create", payload(input));
 export const fetchKnowledge = (input: unknown) => send("knowledge-fetch", payload(input));
 export const discardDraftGroup = (input: unknown) => send("draft-discard", payload(input));
 export async function signOutAction() {

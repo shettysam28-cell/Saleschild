@@ -1,5 +1,12 @@
+import Link from "next/link";
+import { RevisionGuideView } from "../../src/components/revision-guide";
+import {
+  KnowledgeNavigation,
+  KnowledgeLibrary,
+  type KnowledgeTab,
+} from "../../src/components/knowledge-navigation";
+import type { loadStudyGuide } from "../../src/lib/learning/guides";
 import { UniversalGateway } from "../../src/components/universal-gateway";
-import { GatewayRecordEditor } from "../../src/components/gateway-record-editor";
 import { KnowledgeRecordView } from "../../src/components/knowledge-record-view";
 import { LearningPathView } from "../../src/components/learning-path-view";
 import { WorkspaceForm } from "../../src/components/workspace-form";
@@ -63,8 +70,7 @@ function LegacyApp() {
 
 function UniversalApp() {
   const [records, setRecords] = useState<(EditableKnowledge & { source_url: string | null })[]>([]),
-    [paths, setPaths] = useState<{ id: string; title: string; description: string }[]>([]),
-    [recent, setRecent] = useState<{ id: string; source_name: string; expires_at: string }[]>([]);
+    [paths, setPaths] = useState<{ id: string; title: string; description: string }[]>([]);
   const [role, setRole] = useState<Role>("learner"),
     [learning, setLearning] = useState<LearningWorkspace>(),
     [analytics, setAnalytics] = useState<React.ComponentProps<typeof WorkspaceAnalytics>>(),
@@ -74,9 +80,14 @@ function UniversalApp() {
       undefined,
     ),
     [path, setPath] = useState<Awaited<ReturnType<typeof loadLearningPath>> | undefined>(undefined);
+  const [guide, setGuide] = useState<Awaited<ReturnType<typeof loadStudyGuide>>>();
+  const viewParam = new URLSearchParams(window.location.search).get("view");
+  const tab: KnowledgeTab =
+    viewParam === "drafts" ? "drafts" : viewParam === "library" ? "library" : "import";
+  const guideRoute = window.location.pathname.endsWith("/revision");
   const current = window.location.pathname,
     recordId = /^\/app\/knowledge\/([\da-f-]+)$/.exec(current)?.[1],
-    pathId = /^\/app\/learning\/([\da-f-]+)$/.exec(current)?.[1];
+    pathId = /^\/app\/learning\/([\da-f-]+)(?:\/revision)?$/.exec(current)?.[1];
   useEffect(() => {
     const get = (url: string) =>
       fetch(url).then((r) => {
@@ -86,13 +97,19 @@ function UniversalApp() {
     const load = () => {
       void get("/me").then((data) => setRole(data.role));
       if (recordId) void get("/record-data?id=" + recordId).then(setRecord);
-      else if (pathId) {
+      else if (guideRoute && pathId) {
+        void get(
+          "/guide-data?id=" +
+            pathId +
+            "&edition=" +
+            (new URLSearchParams(window.location.search).get("edition") || ""),
+        ).then(setGuide);
+      } else if (pathId) {
         void get("/path-data?id=" + pathId).then(setPath);
         void get("/learning-data?id=" + pathId).then(setLearning);
       } else {
         void get("/records").then(setRecords);
         void get("/paths").then(setPaths);
-        void get("/recent-uploads").then(setRecent);
         if (current === "/app/knowledge") void get("/draft-data").then(setDrafts);
         if (current === "/app/progression") void get("/progress-data").then(setProgression);
         if (current === "/app/analytics")
@@ -102,9 +119,8 @@ function UniversalApp() {
     load();
     window.addEventListener("fixture-refresh", load);
     return () => window.removeEventListener("fixture-refresh", load);
-  }, [current, recordId, pathId]);
-  const author = ["owner", "admin", "editor"].includes(role),
-    admin = ["owner", "admin"].includes(role);
+  }, [current, recordId, pathId, guideRoute]);
+  const author = ["owner", "admin", "editor"].includes(role);
   return (
     <div className="app-shell">
       <aside className="app-sidebar">
@@ -133,6 +149,12 @@ function UniversalApp() {
               <KnowledgeRecordView data={record} />
             ) : (
               <p role="alert">Resource not available.</p>
+            )
+          ) : guideRoute ? (
+            guide ? (
+              <RevisionGuideView data={guide} />
+            ) : (
+              <p>Revision guide unavailable or loading.</p>
             )
           ) : pathId ? (
             path === undefined ? (
@@ -172,30 +194,28 @@ function UniversalApp() {
               {current === "/app" && (
                 <KnowledgeFetch suggestions={["Fictional", "source checkpoint"]} />
               )}
-              {author && <UniversalGateway recent={recent} />}
-              {author && current === "/app/knowledge" && <DraftManager initial={drafts} />}
-              <div aria-label="Saved knowledge">
-                {records.map((r) => (
-                  <article key={r.id} className="record-card">
-                    <h2>
-                      <a href={"/app/knowledge/" + r.id}>{r.title}</a>
-                    </h2>
-                    <p className="knowledge-body">{r.body}</p>
-                    <span>{r.status}</span>
-                    {author &&
-                      (r.status === "draft" || admin) &&
-                      (r.custom_fields.length ? (
-                        <GatewayRecordEditor
-                          key={r.id + ":" + r.current_version}
-                          record={r}
-                          admin={admin}
-                        />
-                      ) : (
-                        r.status === "draft" && <KnowledgeEditor record={r} publish={admin} />
-                      ))}
-                  </article>
-                ))}
-              </div>
+              {current === "/app/knowledge" && (
+                <>
+                  <KnowledgeNavigation tab={tab} />
+                  {author && tab === "import" && (
+                    <>
+                      <UniversalGateway
+                        initialUploadId={
+                          new URLSearchParams(window.location.search).get("upload") || undefined
+                        }
+                      />
+                      <p>
+                        Review saved drafts in{" "}
+                        <Link href="/app/knowledge?view=drafts">Draft Manager</Link>.
+                      </p>
+                    </>
+                  )}
+                  {author && tab === "drafts" && <DraftManager initial={drafts} />}
+                  {tab === "library" && (
+                    <KnowledgeLibrary records={records.filter((r) => r.status === "published")} />
+                  )}
+                </>
+              )}
             </>
           )}
         </main>

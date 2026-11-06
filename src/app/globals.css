@@ -4929,3 +4929,95 @@ html[data-workspace-theme="dark"]
     min-width: 0;
   }
 }
+/* Knowledge and learning use the existing workspace surfaces and palette. */
+.app-shell .knowledge-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-block: 0 26px;
+}
+.app-shell .library-search {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 20px;
+}
+.app-shell .library-search .form-field {
+  flex: 1;
+  min-width: min(100%, 240px);
+}
+.app-shell .draft-group h3 {
+  overflow-wrap: anywhere;
+  margin-bottom: 12px;
+}
+.app-shell .draft-group > .button,
+.app-shell .draft-group > .text-link {
+  margin: 6px 10px 12px 0;
+}
+.app-shell .lesson-outline {
+  display: grid;
+  gap: 16px;
+  margin-block: 24px;
+}
+.app-shell .lesson-module ol {
+  display: grid;
+  gap: 8px;
+  padding-left: 24px;
+}
+.app-shell .lesson-module button {
+  text-align: left;
+  white-space: normal;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  min-height: 44px;
+}
+.app-shell .lesson-section {
+  border-top: 1px solid var(--line);
+  padding-block: 20px;
+}
+.app-shell .lesson-section h5 {
+  font-size: 18px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.app-shell .lesson-section p,
+.app-shell .answer-facts li,
+.app-shell .lesson-guide p {
+  font-size: 16px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.app-shell .answer-facts li {
+  padding-block: 8px;
+}
+.app-shell .answer-citations summary,
+.app-shell .lesson-guide summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding-block: 12px;
+  font-size: 16px;
+}
+.app-shell .answer-citations blockquote {
+  margin: 12px 0;
+  padding-left: 16px;
+  border-left: 3px solid currentColor;
+}
+.app-shell .revision-guide-control > .button {
+  margin: 12px 12px 12px 0;
+}
+.app-shell .lesson-guide details {
+  margin-block: 12px;
+}
+@media (max-width: 600px) {
+  .app-shell .knowledge-navigation .button {
+    flex: 1 1 auto;
+  }
+  .app-shell .library-search {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .app-shell .library-search input {
+    font-size: 16px;
+  }
+}

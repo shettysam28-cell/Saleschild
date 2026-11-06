@@ -75,6 +75,12 @@ export function WorkspaceProgression({ rows, error }: { rows: ProgressRow[]; err
                             ? "Continue learning"
                             : "Start learning"}
                       </Link>
+                      <Link
+                        className="text-link"
+                        href={`/app/learning/${row.course_id}/revision?edition=${row.revision_id}`}
+                      >
+                        Revision guide
+                      </Link>
                     </article>
                   );
                 })}

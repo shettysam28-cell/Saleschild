@@ -1,4 +1,5 @@
 import "server-only";
+import { MAX_ROWS } from "./upload-contract";
 import { SaxesParser } from "saxes";
 import { readOfficeArchive } from "./office-archive";
 import { fail } from "./diagnostics";
@@ -180,7 +181,7 @@ export function extractDocx(bytes: Uint8Array): {
       "EMPTY_DOCUMENT",
       "This document contains headings only. Add text or tables beneath the headings.",
     );
-  if (sections.length > 200)
+  if (sections.length > MAX_ROWS)
     fail("ROW_LIMIT", "Split this document into files with no more than 200 sections.");
   const origins: Record<string, DocumentBlock[]> = {};
   const rows = [

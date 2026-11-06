@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RevisionGuideControl } from "./revision-guide";
 import { LearningSourcePicker } from "./learning-source-picker";
 import type { loadLearningPath } from "@/lib/knowledge/learning";
 import { LearningExperience, LearningPublisher } from "./learning-experience";
@@ -23,7 +24,10 @@ export function LearningPathView({
         </div>
       </div>
       {data.author && data.course.status === "draft" && (
-        <LearningSourcePicker courseId={data.course.id} sources={data.approved} />
+        <details className="workspace-card" open={!data.lessons.length}>
+          <summary>Curate approved lesson sources</summary>
+          <LearningSourcePicker courseId={data.course.id} sources={data.approved} />
+        </details>
       )}
       {learning &&
         (data.author ? (
@@ -31,8 +35,8 @@ export function LearningPathView({
             <LearningExperience sources={data.lessons} courseId={data.course.id} preview />
             {learning.revision && (
               <p className="workspace-notice">
-                Published revision {learning.revision.number} preserves {learning.units.length}{" "}
-                source units. Publishing a reviewed update retains prior member history.
+                Published edition {learning.revision.number} includes {learning.units.length}{" "}
+                lessons. New editions retain earlier learning history.
               </p>
             )}
             {learning.canPublish && (
@@ -47,7 +51,7 @@ export function LearningPathView({
           </>
         ) : learning.revision ? (
           <LearningExperience
-            key={learning.revision.id}
+            key={`lesson-${learning.revision.id}`}
             sources={learning.units}
             initialProgress={learning.progress}
             revisionId={learning.revision.id}
@@ -63,9 +67,17 @@ export function LearningPathView({
             </p>
           </section>
         ))}
+      {learning?.revision && (
+        <RevisionGuideControl
+          key={`guide-${learning.revision.id}`}
+          courseId={data.course.id}
+          revisionId={learning.revision.id}
+        />
+      )}
       {(!learning || data.author) && (
-        <section className="workspace-card" aria-labelledby="saved-path-lessons">
-          <h2 id="saved-path-lessons">Saved lessons</h2>
+        <details className="workspace-card" aria-labelledby="saved-path-lessons">
+          <summary>Source coverage and curator details</summary>
+          <h2 id="saved-path-lessons">Approved lesson sources</h2>
           {!data.lessons.length && (
             <p>No lessons yet. An author can add approved knowledge to this draft path.</p>
           )}
@@ -100,7 +112,7 @@ export function LearningPathView({
               </li>
             ))}
           </ol>
-        </section>
+        </details>
       )}
     </>
   );

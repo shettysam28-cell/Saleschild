@@ -2,11 +2,13 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseConfig } from "@/lib/config";
+import { workspaceFetch } from "./request";
 export async function createClient() {
   const config = supabaseConfig();
   if (!config) return null;
   const store = await cookies();
   return createServerClient(config.url, config.key, {
+    global: { fetch: workspaceFetch },
     cookieOptions: { sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/" },
     cookies: {
       getAll() {

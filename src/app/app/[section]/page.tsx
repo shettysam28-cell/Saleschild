@@ -5,11 +5,8 @@ import { requireWorkspace } from "@/lib/session";
 import { canAuthor, canAdmin } from "@/lib/permissions";
 import { modules } from "@/lib/modules";
 import { WorkspaceForm } from "@/components/workspace-form";
-import { KnowledgeEditor } from "@/components/knowledge-editor";
-import { KnowledgeOnboarding } from "@/components/knowledge-onboarding";
+import { KnowledgeTemplateLibrary } from "@/components/knowledge-template-library";
 import { UniversalGateway } from "@/components/universal-gateway";
-import { GatewayRecordEditor } from "@/components/gateway-record-editor";
-import { listGatewayUploads } from "@/app/app/knowledge/gateway-actions";
 import { markNotificationRead } from "@/app/app/actions";
 import { WorkspaceAnalytics } from "@/components/workspace-analytics";
 import { WorkspaceProgression } from "@/components/workspace-progression";
@@ -20,6 +17,13 @@ import { getAccountSettings } from "@/lib/member-management";
 import { OrganizationDetails } from "@/components/organization-details";
 import { DraftManager } from "@/components/draft-manager";
 import { loadDraftManager } from "@/lib/knowledge/draft-manager";
+import {
+  KnowledgeNavigation,
+  KnowledgeLibrary,
+  type KnowledgeTab,
+  type LibraryRecord,
+} from "@/components/knowledge-navigation";
+import { knowledgeQuery } from "@/lib/knowledge/answers";
 function Empty({
   title,
   description,
@@ -59,85 +63,99 @@ export default async function ModulePage({
   if (section === "progression" && role !== "learner") notFound();
   let content: React.ReactNode;
   if (section === "knowledge") {
-    const records = checked(
-      await client
-        .from("knowledge_items")
-        .select("id,title,body,source_url,status,current_version,evidence_status,custom_fields")
-        .eq("organization_id", organization.id)
-        .is("discarded_at", null)
-        .order("created_at", { ascending: false })
-        .limit(50),
-    );
-    content = (
-      <>
-        {author && <DraftManager initial={await loadDraftManager()} />}
-        {author && (
+    const tab: KnowledgeTab = query.upload
+      ? "import"
+      : query.view === "drafts"
+        ? "drafts"
+        : query.view === "library"
+          ? "library"
+          : "import";
+    let workspace: React.ReactNode;
+    if (tab === "import")
+      workspace = (
+        <>
           <UniversalGateway
             initialUploadId={typeof query.upload === "string" ? query.upload : undefined}
-            recent={await listGatewayUploads()}
           />
-        )}
-        {author && (
+          <p className="workspace-notice">
+            Uploads are saved as drafts. Continue review and publication in{" "}
+            <Link href="/app/knowledge?view=drafts">Draft Manager</Link>; published resources appear
+            in the <Link href="/app/knowledge?view=library">Knowledge Library</Link>.
+          </p>
           <details className="workspace-card">
-            <summary>Optional source templates and Academy preview</summary>
-            <KnowledgeOnboarding admin={admin} />
+            <summary>Source templates and guided examples</summary>
+            <KnowledgeTemplateLibrary />
           </details>
-        )}
-        {author && (
           <details className="workspace-card">
-            <summary>Add a knowledge resource</summary>
-            <div style={{ marginTop: 20 }}>
-              <WorkspaceForm kind="knowledge" publish={admin} />
-            </div>
+            <summary>Add an individual knowledge resource</summary>
+            <WorkspaceForm kind="knowledge" publish={admin} />
           </details>
-        )}
-        {records.length ? (
-          <div className="record-list" aria-label="Saved knowledge">
-            {records.map((record) => (
-              <article className="record-card" key={record.id}>
-                <div>
-                  <h2>
-                    <Link href={`/app/knowledge/${record.id}`}>{record.title}</Link>
-                  </h2>
-                  <span className="record-badge">{record.status}</span>
-                </div>
-                <p className="knowledge-body">{record.body}</p>
-                <small>
-                  Version {record.current_version} · Evidence: {record.evidence_status}
-                  {record.source_url && (
-                    <>
-                      {" "}
-                      ·{" "}
-                      <a href={record.source_url} target="_blank" rel="noopener noreferrer">
-                        Source
-                      </a>
-                    </>
-                  )}
-                </small>
-                {author &&
-                  (record.status === "draft" || admin) &&
-                  (record.custom_fields.length ? (
-                    <GatewayRecordEditor
-                      key={`${record.id}:${record.current_version}`}
-                      record={record}
-                      admin={admin}
-                    />
-                  ) : (
-                    record.status === "draft" && <KnowledgeEditor record={record} publish={admin} />
-                  ))}
-              </article>
-            ))}
-          </div>
-        ) : (
-          <Empty
-            title="Good knowledge starts somewhere."
-            description={
-              author
-                ? "Add your first resource to begin building a trusted foundation."
-                : "Your team’s approved knowledge will appear here when it’s published."
-            }
-          />
-        )}
+        </>
+      );
+    else if (tab === "drafts") {
+      const manager = await loadDraftManager();
+      const individual = checked(
+        await client.rpc("list_individual_knowledge_drafts", { org_id: organization.id }),
+      ) as { id: string; title: string; current_version: number }[];
+      workspace = (
+        <>
+          <DraftManager initial={manager} />
+          {individual.length > 0 && (
+            <section className="workspace-card">
+              <h2>Individual resources</h2>
+              <p>
+                Drafts created directly, rather than through an upload. Review and approve each
+                resource separately.
+              </p>
+              <ul>
+                {individual.map((record) => (
+                  <li key={record.id}>
+                    <Link href={`/app/knowledge/${record.id}`}>
+                      {record.title} · version {record.current_version} · Review draft
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      );
+    } else {
+      const q = typeof query.q === "string" ? query.q.trim().slice(0, 200) : "";
+      const term = knowledgeQuery(q).retrieval;
+      const result =
+        q && term
+          ? await client.rpc("search_approved_knowledge", {
+              org_id: organization.id,
+              query_text: term,
+              result_limit: 5,
+            })
+          : q
+            ? { data: [], error: null }
+            : await client
+                .from("knowledge_items")
+                .select("id,title,body,current_version,source_url,evidence_status")
+                .eq("organization_id", organization.id)
+                .eq("status", "published")
+                .is("discarded_at", null)
+                .order("created_at", { ascending: false })
+                .limit(50);
+      workspace = (
+        <KnowledgeLibrary
+          q={q}
+          records={(result.data ?? []) as LibraryRecord[]}
+          error={
+            result.error
+              ? "Published knowledge could not be loaded. Retry or contact your owner."
+              : undefined
+          }
+        />
+      );
+    }
+    content = (
+      <>
+        <KnowledgeNavigation tab={tab} />
+        {workspace}
       </>
     );
   } else if (section === "learning") {

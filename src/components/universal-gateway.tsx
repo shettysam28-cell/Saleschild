@@ -1,6 +1,13 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import {
+  GATEWAY_ACCEPT,
+  GATEWAY_FORMAT_LABEL,
+  UPLOAD_LIMIT_LABEL,
+  MAX_ROWS,
+  uploadIssue,
+} from "@/lib/knowledge/upload-contract";
 import { useRouter } from "next/navigation";
 import {
   uploadGatewaySource,
@@ -18,7 +25,6 @@ import {
 
 type Props = {
   initialUploadId?: string;
-  recent?: { id: string; source_name: string; expires_at: string }[];
 };
 function reviewLocation(id?: string) {
   const url = new URL(window.location.href);
@@ -26,7 +32,7 @@ function reviewLocation(id?: string) {
   else url.searchParams.delete("upload");
   window.history.replaceState(null, "", url);
 }
-export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
+export function UniversalGateway({ initialUploadId }: Props) {
   const router = useRouter();
   const [upload, setUpload] = useState<GatewayUpload>();
   const [choices, setChoices] = useState<ReviewChoices>();
@@ -150,6 +156,11 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
     return () => clearTimeout(timer.current);
   }, [choices, upload, persist]);
   async function choose(file: File) {
+    const issue = uploadIssue(file);
+    if (issue) {
+      error(issue);
+      return;
+    }
     clearTimeout(timer.current);
     await queue.current;
     setBusy(true);
@@ -279,7 +290,7 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
             Choose a knowledge source
             <input
               type="file"
-              accept=".xlsx,.csv,.docx"
+              accept={GATEWAY_ACCEPT}
               disabled={busy}
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -289,8 +300,8 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
             />
           </label>
           <p className="form-help">
-            CSV, XLSX or DOCX · 2 MiB per file · save up to 200 records at once · 32 spreadsheet
-            columns. Your existing templates remain optional presets below.
+            {GATEWAY_FORMAT_LABEL} · {UPLOAD_LIMIT_LABEL}. Your existing templates remain optional
+            presets below.
           </p>
           <details>
             <summary>Spreadsheet and Word formatting guide</summary>
@@ -311,26 +322,6 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
               labels are imported as text; remote content is never fetched.
             </p>
           </details>
-          {recent.length > 0 && (
-            <div className="gateway-resume">
-              <h3>Resume a private review</h3>
-              {recent.map((r) => (
-                <button
-                  type="button"
-                  className="button button-outline"
-                  key={r.id}
-                  disabled={busy}
-                  onClick={() => void reopen(r.id)}
-                >
-                  {r.source_name}
-                </button>
-              ))}
-              <p className="form-help">
-                Reviews expire after 24 hours. Saving a draft preserves its source and version
-                history.
-              </p>
-            </div>
-          )}
         </div>
       )}
       {message && (
@@ -676,7 +667,7 @@ export function UniversalGateway({ initialUploadId, recent = [] }: Props) {
                 busy ||
                 (!saveLocked &&
                   (!selected.length ||
-                    selected.length > 200 ||
+                    selected.length > MAX_ROWS ||
                     Boolean(invalid.length || exact.length || possible.length)))
               }
               onClick={() => void save()}

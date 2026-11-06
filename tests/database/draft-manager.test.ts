@@ -28,7 +28,7 @@ async function scalar<T>(sql: string, args: unknown[] = []) {
 }
 async function list(user = owner, organization = org) {
   return as(user, () =>
-    scalar<DraftGroup[]>("select public.list_knowledge_draft_groups($1) value", [organization]),
+    scalar<DraftGroup[]>("select public.list_knowledge_draft_groups_v2($1) value", [organization]),
   );
 }
 async function upload(name = "Company handbook.csv", user = owner) {
@@ -151,7 +151,12 @@ describe("grouped drafts: actual migration and RLS", () => {
     const own = await upload("Private unfinished.csv");
     const someone = await upload("Editor unfinished.csv", editor);
     const groups = await list();
-    expect(groups.some((g) => g.id === own && g.kind === "review" && g.resumable)).toBe(true);
+    expect(groups.find((g) => g.id === own)).toMatchObject({
+      kind: "review",
+      resumable: true,
+      discardable: true,
+      blockedReason: null,
+    });
     expect(groups.some((g) => g.id === someone)).toBe(false);
     expect(JSON.stringify(groups)).not.toContain("extraction");
   });
@@ -162,12 +167,36 @@ describe("grouped drafts: actual migration and RLS", () => {
     expect(group.recordCount).toBe(1);
     expect(group.draftCount).toBe(1);
     expect(group.resumable).toBe(false);
+    expect(group.discardable).toBe(true);
+    expect(group.blockedReason).toBeNull();
     expect(group.records[0]).toMatchObject({
       id: saved.ids[0],
       status: "draft",
       version: 1,
       discarded: false,
     });
+  });
+  it("keeps individual drafts separate from upload groups and denies learner or foreign access", async () => {
+    const grouped = await save();
+    const manualId = await as(owner, () =>
+      scalar<string>(
+        "insert into public.knowledge_items(organization_id,title,body,created_by)values($1,'Individual fictional resource','An authored draft outside spreadsheet uploads.',$2)returning id value",
+        [org, owner],
+      ),
+    );
+    const result = await as(owner, () =>
+      db.query<{ id: string }>("select * from public.list_individual_knowledge_drafts($1)", [org]),
+    );
+    expect(result.rows.map((row) => row.id)).toContain(manualId);
+    expect(result.rows.map((row) => row.id)).not.toContain(grouped.ids[0]);
+    await expect(
+      as(member, () =>
+        db.query("select * from public.list_individual_knowledge_drafts($1)", [org]),
+      ),
+    ).rejects.toThrow(/Author access/);
+    await expect(
+      as(other, () => db.query("select * from public.list_individual_knowledge_drafts($1)", [org])),
+    ).rejects.toThrow(/Author access/);
   });
   it("denies anonymous, learners, and other organizations", async () => {
     await expect(
@@ -268,9 +297,10 @@ describe("grouped drafts: actual migration and RLS", () => {
     await as(owner, () =>
       db.query("update public.knowledge_items set status='published' where id=$1", [saved.ids[0]]),
     );
-    await expect(discard((await list()).find((g) => g.id === saved.id)!)).rejects.toThrow(
-      /Approved or dependent/,
-    );
+    const protectedGroup = (await list()).find((g) => g.id === saved.id)!;
+    expect(protectedGroup.discardable).toBe(false);
+    expect(protectedGroup.blockedReason).toMatch(/published|learning-linked/);
+    await expect(discard(protectedGroup)).rejects.toThrow(/Approved or dependent/);
     await as(owner, () =>
       db.query("update public.knowledge_items set status='draft' where id=$1", [saved.ids[0]]),
     );
@@ -336,6 +366,8 @@ describe("grouped drafts: actual migration and RLS", () => {
     const group = (await list()).find((g) => g.id === saved.id)!;
     expect(group.draftCount).toBe(1);
     expect(group.publishedCount).toBe(1);
+    expect(group.discardable).toBe(false);
+    expect(group.blockedReason).toContain("published");
     await expect(discard(group)).rejects.toThrow(/Approved or dependent/);
     expect(
       await scalar<number>(

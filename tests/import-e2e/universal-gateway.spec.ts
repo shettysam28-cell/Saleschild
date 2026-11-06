@@ -28,7 +28,7 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
 }
 async function begin(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
   await page.request.get("/fixture/owner-a");
-  await page.goto("/universal");
+  await page.goto("/app/knowledge");
   await page.getByLabel("Choose a knowledge source").setInputFiles(file);
   await expect(
     page.getByRole("heading", { name: "Review " + file.name, exact: true }),
@@ -198,10 +198,12 @@ test("custom three-column XLSX: review, recovery, edit, approval and existing pa
   await page.getByRole("button", { name: "Add 2 approved resources", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("response was interrupted");
   await page.getByRole("button", { name: "Add 2 approved resources", exact: true }).click();
+  await page.getByText("Source coverage and curator details", { exact: true }).click();
   const lessons = page.getByRole("list", { name: "Learning Path lessons" });
   await expect(lessons.getByRole("listitem")).toHaveCount(2);
   await expect(lessons).toContainText(final);
   await page.reload();
+  await page.getByText("Source coverage and curator details", { exact: true }).click();
   await expect(lessons.getByRole("listitem")).toHaveCount(2);
   await expect(lessons).toContainText("Local practice");
   await screenshot(page, info, "learning-path");
@@ -220,6 +222,7 @@ test("custom three-column XLSX: review, recovery, edit, approval and existing pa
   await page.getByRole("button", { name: "Save field changes as draft", exact: true }).click();
   await expect(page.locator(".app-title-row")).toContainText("draft");
   await page.goto(pathUrl);
+  await page.getByText("Source coverage and curator details", { exact: true }).click();
   await expect(page.getByRole("list", { name: "Learning Path lessons" })).toContainText(final);
   await expect(page.getByRole("list", { name: "Learning Path lessons" })).not.toContainText(
     "later draft revision",
@@ -263,8 +266,10 @@ for (const format of ["csv", "xlsx"] as const)
     const pathUrl = await createPath(page, `Path ${format} ${info.project.name}`);
     await chooseSource(page, title);
     await page.getByRole("button", { name: "Add 1 approved resources", exact: true }).click();
+    await page.getByText("Source coverage and curator details", { exact: true }).click();
     await expect(page.getByRole("list", { name: "Learning Path lessons" })).toContainText(note);
     await page.goto(pathUrl);
+    await page.getByText("Source coverage and curator details", { exact: true }).click();
     await expect(page.getByRole("list", { name: "Learning Path lessons" })).toContainText(
       "Support tier",
     );
@@ -301,10 +306,12 @@ test("structured DOCX sections become approved persisted Learning Path lessons",
   await choices.nth(0).check();
   await choices.nth(1).check();
   await page.getByRole("button", { name: "Add 2 approved resources", exact: true }).click();
+  await page.getByText("Source coverage and curator details", { exact: true }).click();
   await expect(
     page.getByRole("list", { name: "Learning Path lessons" }).getByRole("listitem"),
   ).toHaveCount(2);
   await page.goto(pathUrl);
+  await page.getByText("Source coverage and curator details", { exact: true }).click();
   const lessons = page.getByRole("list", { name: "Learning Path lessons" });
   await expect(lessons).toContainText("Indicator 🧰 | Operations");
   await expect(lessons).toContainText("designated training coordinator");

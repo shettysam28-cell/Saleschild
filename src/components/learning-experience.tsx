@@ -1,7 +1,7 @@
 "use client";
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { presentLesson } from "@/lib/learning/lesson";
 import {
   buildCurriculum,
   resumeUnitIndex,
@@ -43,7 +43,9 @@ export function LearningPublisher({
         setFailed(true);
         setMessage(result.error);
       } else {
-        setMessage("Published learning revision saved. Members can open this approved version.");
+        setMessage(
+          "Learning path published. Members can open this edition and its revision guide.",
+        );
         setReviewed(false);
         router.refresh();
       }
@@ -84,7 +86,7 @@ export function LearningPublisher({
       className="workspace-card learning-publisher"
       aria-labelledby="publish-learning-heading"
     >
-      <h2 id="publish-learning-heading">Publish reviewed learning</h2>
+      <h2 id="publish-learning-heading">Publish learning path</h2>
       <p>
         Publication freezes the ordered source units as a learning revision. Existing member history
         remains attached to the version they studied.
@@ -97,7 +99,7 @@ export function LearningPublisher({
           disabled={busy || !available}
           onClick={() => void prepare()}
         >
-          {busy ? "Preparing draft revision…" : "Prepare next revision"}
+          {busy ? "Opening path draft…" : "Edit path draft"}
         </button>
       ) : (
         <>
@@ -119,8 +121,8 @@ export function LearningPublisher({
             {busy
               ? "Publishing reviewed learning…"
               : published
-                ? "Publish reviewed revision"
-                : "Publish learning revision"}
+                ? "Publish next edition"
+                : "Publish learning path"}
           </button>
         </>
       )}
@@ -160,14 +162,13 @@ export function LearningExperience({
       initialProgress.find((p) => p.unit_id === units[initialIndex]?.id)?.resume_step ?? 0,
     ),
     [answer, setAnswer] = useState(""),
-    [detailIndex, setDetailIndex] = useState(0),
     [confirmed, setConfirmed] = useState(false),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [failed, setFailed] = useState(false);
   const unit = units[active],
     current = progress.find((p) => p.unit_id === unit?.id);
-  const detail = unit?.facts[detailIndex] ?? unit?.facts[0];
+  const lesson = unit ? presentLesson(unit) : null;
   const summary = summarizeProgress(
     units.map((u) => u.id),
     progress,
@@ -176,7 +177,6 @@ export function LearningExperience({
     setActive(index);
     setStep(progress.find((p) => p.unit_id === units[index].id)?.resume_step ?? 0);
     setAnswer("");
-    setDetailIndex(0);
     setConfirmed(false);
     setMessage("");
   }
@@ -214,7 +214,7 @@ export function LearningExperience({
           ]);
         setMessage(
           action === "complete"
-            ? "Source checkpoint passed. Engagement is recorded; this is not a mastery score."
+            ? "Knowledge check passed. Lesson completion is recorded; this is not a mastery score."
             : "Your place is saved. Reopen this path to continue.",
         );
         router.refresh();
@@ -232,11 +232,11 @@ export function LearningExperience({
       aria-labelledby="learning-intelligence-heading"
     >
       <h2 id="learning-intelligence-heading">
-        {preview ? "Owner Spectator preview" : "Your learning workspace"}
+        {preview ? "Owner lesson preview" : "Your learning path"}
       </h2>
       <p>
-        Deterministic, source-led learning. Each detail below comes from an approved source
-        snapshot; no AI generation is connected.
+        Follow the modules, read each lesson and check your understanding. Lessons use approved
+        company knowledge; missing facts are never invented.
       </p>
       {preview ? (
         <p className="form-help">
@@ -270,66 +270,48 @@ export function LearningExperience({
         <p>Add approved knowledge to this path to preview source-led learning.</p>
       ) : (
         <>
-          <nav aria-label="Learning units">
-            <ol
-              style={{
-                display: "flex",
-                gap: 8,
-                flexWrap: "wrap",
-                paddingLeft: 24,
-                maxHeight: 240,
-                overflowY: "auto",
-              }}
-            >
-              {units.map((item, index) => (
-                <li key={item.id} style={{ minWidth: 0, maxWidth: "100%" }}>
-                  <button
-                    type="button"
-                    className="button button-outline"
-                    style={{
-                      maxWidth: "100%",
-                      whiteSpace: "normal",
-                      overflowWrap: "anywhere",
-                      paddingBlock: 8,
-                      textAlign: "left",
-                    }}
-                    disabled={busy}
-                    aria-current={active === index ? "step" : undefined}
-                    onClick={() => select(index)}
-                  >
-                    {index + 1}. {item.title}
-                    {progress.some(
-                      (p) => p.unit_id === item.id && p.completed_at && p.checkpoint_passed,
-                    )
-                      ? " · Completed"
-                      : ""}
-                  </button>
-                </li>
-              ))}
-            </ol>
+          <nav aria-label="Modules and lessons" className="lesson-outline">
+            {[...new Set(units.map((item) => presentLesson(item).module))].map(
+              (module, moduleIndex) => (
+                <section className="lesson-module" key={module}>
+                  <h3>
+                    Module {moduleIndex + 1}: {module}
+                  </h3>
+                  <ol>
+                    {units.map((item, index) =>
+                      presentLesson(item).module === module ? (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            className="button button-outline"
+                            disabled={busy}
+                            aria-current={active === index ? "step" : undefined}
+                            onClick={() => select(index)}
+                          >
+                            {index + 1}. {presentLesson(item).title}
+                            {progress.some(
+                              (p) => p.unit_id === item.id && p.completed_at && p.checkpoint_passed,
+                            )
+                              ? " · Completed"
+                              : ""}
+                          </button>
+                        </li>
+                      ) : null,
+                    )}
+                  </ol>
+                </section>
+              ),
+            )}
           </nav>
           <article aria-labelledby={`${formId}-unit`}>
             <p className="record-badge" style={{ overflowWrap: "anywhere" }}>
-              {unit.group}
+              Module: {lesson?.module}
             </p>
             <h3 id={`${formId}-unit`} style={{ overflowWrap: "anywhere" }}>
-              {unit.title}
+              {lesson?.title}
             </h3>
-            {unit.objective ? (
-              <p>
-                <strong>Source learning objective:</strong> {unit.objective}
-              </p>
-            ) : (
-              <p>Explore the approved source and confirm one documented detail.</p>
-            )}
-            <p className="form-help">
-              Approved source version {unit.source_version}. This snapshot remains available when
-              its original source is revised.{" "}
-              <Link
-                href={`/app/sources/${unit.source_knowledge_id}?version=${unit.source_version}`}
-              >
-                Open approved source version
-              </Link>
+            <p>
+              <strong>Learning objective:</strong> {lesson?.objective}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBlock: 16 }}>
               <button
@@ -339,7 +321,7 @@ export function LearningExperience({
                 disabled={busy}
                 onClick={() => setStep(0)}
               >
-                Explore source
+                Read lesson
               </button>
               <button
                 type="button"
@@ -348,59 +330,23 @@ export function LearningExperience({
                 disabled={busy}
                 onClick={() => setStep(1)}
               >
-                Source checkpoint
+                Knowledge check
               </button>
             </div>
             {step === 0 ? (
               <>
-                <h4>Explore documented details</h4>
-                {detail ? (
-                  <>
-                    <article className="workspace-card" aria-labelledby={`${formId}-detail`}>
-                      <p className="form-help">
-                        Detail {detailIndex + 1} of {unit.facts.length} · exact approved source text
-                      </p>
-                      <h5 id={`${formId}-detail`} style={{ overflowWrap: "anywhere" }}>
-                        {detail.label}
-                      </h5>
-                      <p className="knowledge-body">{detail.value}</p>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBlock: 12 }}>
-                        <button
-                          type="button"
-                          className="button button-outline"
-                          disabled={detailIndex === 0 || busy}
-                          onClick={() => setDetailIndex((index) => index - 1)}
-                        >
-                          Previous detail
-                        </button>
-                        <button
-                          type="button"
-                          className="button button-outline"
-                          disabled={detailIndex + 1 >= unit.facts.length || busy}
-                          onClick={() => setDetailIndex((index) => index + 1)}
-                        >
-                          Next detail
-                        </button>
-                      </div>
-                    </article>
-                    <details style={{ marginBlock: 16 }}>
-                      <summary>Inspect all documented fields</summary>
-                      <dl className="gateway-field-list">
-                        {unit.facts.map((fact) => (
-                          <div key={fact.id}>
-                            <dt>{fact.label}</dt>
-                            <dd>{fact.value}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </details>
-                  </>
-                ) : (
-                  <p className="knowledge-body">{unit.body}</p>
-                )}
+                <h4>
+                  Lesson {active + 1}: {lesson?.title}
+                </h4>
+                {lesson?.sections.map((section) => (
+                  <section className="lesson-section" key={section.id}>
+                    <h5>{section.heading}</h5>
+                    <p className="knowledge-body">{section.text}</p>
+                  </section>
+                ))}
                 {unit.scenario && (
                   <details className="workspace-card">
-                    <summary>Explore the source scenario</summary>
+                    <summary>Practice scenario</summary>
                     <p className="knowledge-body">{unit.scenario.situation}</p>
                     <details>
                       <summary>Read the explicitly documented response</summary>
@@ -418,16 +364,16 @@ export function LearningExperience({
                   disabled={busy}
                   onClick={() => setStep(1)}
                 >
-                  Continue to source checkpoint
+                  Continue to knowledge check
                 </button>
               </>
             ) : (
               <>
-                <h4>Source checkpoint — confirms engagement, not mastery</h4>
+                <h4>Knowledge check</h4>
                 {unit.checkpoint.mode === "select" ? (
                   <fieldset disabled={busy || !!current?.completed_at} style={{ minWidth: 0 }}>
                     <legend>
-                      According to “{unit.title}”, what is the first documented value under “
+                      According to “{unit.title}”, which value is documented for “
                       {unit.checkpoint.label}”?
                     </legend>
                     {unit.checkpoint.choices.map((choice, index) => (
@@ -448,8 +394,8 @@ export function LearningExperience({
                       </label>
                     ))}
                     <p className="form-help">
-                      Every choice is an actual value from this source. Reopen Explore source to
-                      check its field labels.
+                      Every choice is an actual value from this source. Reopen Read lesson to check
+                      its field labels.
                     </p>
                   </fieldset>
                 ) : (
@@ -483,7 +429,7 @@ export function LearningExperience({
                     disabled={busy || (unit.checkpoint.mode === "select" ? !answer : !confirmed)}
                     onClick={() => void record("complete")}
                   >
-                    {busy ? "Checking source evidence…" : "Complete source checkpoint"}
+                    {busy ? "Checking source evidence…" : "Complete knowledge check"}
                   </button>
                 )}
               </>
@@ -504,7 +450,7 @@ export function LearningExperience({
                     disabled={busy}
                     onClick={() => void record("start")}
                   >
-                    Start unit
+                    Start lesson
                   </button>
                 )}
                 <button
@@ -522,7 +468,7 @@ export function LearningExperience({
                     disabled={busy}
                     onClick={() => select(active + 1)}
                   >
-                    Explore next unit
+                    Next lesson
                   </button>
                 )}
               </div>

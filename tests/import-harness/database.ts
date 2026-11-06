@@ -80,6 +80,9 @@ const rpcKeys: Record<string, string[]> = {
   search_approved_knowledge: ["org_id", "query_text", "result_limit"],
   list_workspace_members: ["org_id"],
   list_knowledge_draft_groups: ["org_id"],
+  list_knowledge_draft_groups_v2: ["org_id"],
+  list_individual_knowledge_drafts: ["org_id"],
+  save_learning_guide: ["org_id", "revision_id"],
   discard_knowledge_draft_group: ["org_id", "group_id", "group_kind", "expected_records"],
 };
 const tables = new Set([
@@ -93,6 +96,7 @@ const tables = new Set([
   "learning_path_revisions",
   "learning_revision_units",
   "learning_unit_progress",
+  "learning_revision_guides",
 ]);
 const quoted = (name: string) => {
   if (!/^[a-z_]+$/.test(name)) throw Error("Unsafe fixture identifier");

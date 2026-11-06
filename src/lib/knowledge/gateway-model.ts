@@ -1,3 +1,5 @@
+import { columns } from "./templates";
+import { MAX_COLUMNS } from "./upload-contract";
 import type { SpreadsheetExtraction } from "./spreadsheet-extraction";
 import type { DocumentBlock } from "./docx";
 export type GatewayField = { id: string; label: string; value: string };
@@ -83,7 +85,7 @@ export function reviewRows(
     choices.headerRow === 0 ? undefined : populated.find((r) => r.row === choices.headerRow);
   const data = populated.filter((r) => !header || r.row > header.row);
   const width = Math.min(
-    32,
+    MAX_COLUMNS,
     Math.max(header?.cells.length ?? 0, ...data.map((r) => r.cells.length), 0),
   );
   const originalLabels = Array.from(
@@ -120,6 +122,19 @@ export function reviewRows(
         : `${sheet.name} · row ${raw.row}`)
     ).normalize("NFC");
     const errors: string[] = [];
+    const headingKey = (value: string) => value.trim().normalize("NFKC").toLocaleLowerCase("en");
+    const values = raw.cells.map(headingKey);
+    const knownLabels = new Set(columns.map(headingKey));
+    const nonempty = values.filter(Boolean);
+    const repeatsMappedHeader =
+      values.length >= 2 &&
+      values.every((value, i) => value === headingKey(header?.cells[i] ?? choices.labels[i] ?? ""));
+    const knownTemplateHeader =
+      nonempty.length >= 2 && nonempty.every((value) => knownLabels.has(value));
+    if (repeatsMappedHeader || knownTemplateHeader)
+      errors.push(
+        "This row contains column headings, not knowledge. Select the correct header row or exclude this row before saving.",
+      );
     if (title.length < 3 || title.length > 160) errors.push("Use a title of 3–160 characters.");
     for (const f of fields) {
       if (!f.label.trim() || f.label.length > 100)
