@@ -51,7 +51,7 @@ export function LearningPathView({
           </>
         ) : learning.revision ? (
           <LearningExperience
-            key={learning.revision.id}
+            key={`lesson-${learning.revision.id}`}
             sources={learning.units}
             initialProgress={learning.progress}
             revisionId={learning.revision.id}
@@ -69,7 +69,7 @@ export function LearningPathView({
         ))}
       {learning?.revision && (
         <RevisionGuideControl
-          key={learning.revision.id}
+          key={`guide-${learning.revision.id}`}
           courseId={data.course.id}
           revisionId={learning.revision.id}
         />

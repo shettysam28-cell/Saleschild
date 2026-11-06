@@ -178,6 +178,10 @@ test("official XLSX reaches published learning, member checkpoint, resume and te
   await page.goto(pathUrl);
   await member.getByRole("button", { name: "Start lesson", exact: true }).click();
   await expect(member.getByRole("status").filter({ hasText: "Your place is saved" })).toBeVisible();
+  await expect(member).toHaveCount(1);
+  await expect(
+    member.getByRole("button", { name: "Continue to knowledge check", exact: true }),
+  ).toHaveCount(1);
   await member.getByRole("button", { name: "Continue to knowledge check", exact: true }).click();
   await member.getByRole("button", { name: "Save my place", exact: true }).click();
   await expect(member.getByRole("status").filter({ hasText: "Your place is saved" })).toBeVisible();

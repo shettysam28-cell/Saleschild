@@ -7,7 +7,9 @@ const shim = path.join(root, "tests/import-harness/shims.ts");
 const vite = await createServer({
   root,
   configFile: false,
-  server: { middlewareMode: true },
+  // This regression fixture is immutable during a run. Generated build/browser
+  // evidence must not trigger Vite reloads and erase an in-flight review.
+  server: { middlewareMode: true, hmr: false, watch: null },
   esbuild: { jsx: "automatic" },
   resolve: {
     alias: [

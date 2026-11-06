@@ -28,7 +28,7 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
 }
 async function begin(page: Page, file: { name: string; mimeType: string; buffer: Buffer }) {
   await page.request.get("/fixture/owner-a");
-  await page.goto("/universal");
+  await page.goto("/app/knowledge");
   await page.getByLabel("Choose a knowledge source").setInputFiles(file);
   await expect(
     page.getByRole("heading", { name: "Review " + file.name, exact: true }),
