@@ -1,6 +1,6 @@
 # Isolated Phase 2.2 development build
 
-Development follow-up: [database initialization and reviewed Edge backend](development-member-provisioning.md). The Edge selector now permits paired member flags on this exact isolated site only; the currently deployed flags remain false until external test configuration is available.
+Current acceptance: [hosted development Member evidence](development-member-provisioning.md). The reviewed Edge backend and paired member flags are enabled on this isolated site for controlled development use after the supported hosted Auth/session tests passed. Full production release gates remain closed.
 
 Netlify uses `production` as a deploy context for a site's configured primary
 branch. The development site's primary branch is `feature/issue-8-phase-2-2`;
@@ -22,9 +22,11 @@ development allowance requires all of these inputs together:
   `https://saleschild-development.netlify.app` origin for `production`, the
   PR #10 preview origin for `deploy-preview`, or the approved branch origin for
   `branch-deploy`.
-- Explicit `false` values for `MEMBER_PROVISIONING_ENABLED`,
-  `MEMBER_VERIFICATION_EMAIL_ENABLED`, `RESEND_SENDING_ENABLED`, and
-  `CONTACT_FORM_ENABLED`.
+- Matching member flags: default both `MEMBER_PROVISIONING_ENABLED` and
+  `MEMBER_VERIFICATION_EMAIL_ENABLED` to `false`; paired `true` values require
+  `MEMBER_AUTH_BACKEND=supabase-edge-development` and the verified development
+  backend, Auth callbacks and security gates. `RESEND_SENDING_ENABLED` and
+  `CONTACT_FORM_ENABLED` must remain explicitly `false`.
 - No privileged Supabase credentials or database connection settings; secret
   scanning stays enabled. Public settings belong in Netlify environment
   management, never local environment files or committed credentials.
@@ -39,11 +41,12 @@ The real production site `1d26223b-029f-41aa-ab43-0aed4f2c45e3` retains the
 no environment toggle that selects the development allowance on that site.
 
 On the separate development site only, its primary-site build needs public
-coordinates and disabled flags in the `production` context. Settings limited
+coordinates and the reviewed paired member flags in the `production` context. Settings limited
 to `deploy-preview` are not available in that build. Its primary `APP_URL` must
 match its primary HTTPS origin; the existing PR-preview contextual origin is
 kept separate. Netlify team-login protection must cover all development deploys.
 
-This change does not apply migrations, implement an Auth admin backend, enable
-member provisioning, or establish authenticated hosted acceptance. The empty
-development database still needs a separately reviewed baseline bootstrap.
+The initial build fix did not initialize the database or activate members. The
+subsequent approved development bootstrap, reviewed SQL, Supabase-managed Edge
+backend and supported hosted Owner/Member tests are recorded in the linked
+acceptance report. They do not authorize production migrations or deployment.
