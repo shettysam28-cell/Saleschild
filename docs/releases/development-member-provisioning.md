@@ -2,6 +2,37 @@
 
 Development-only evidence recorded 2026-11-07 for draft PR #10, branch `feature/issue-8-phase-2-2`, starting at `e8c2de2a7d0dbc0b5d5e6847716e4aa3c1c8e5cf`. The final commit containing this report is identified by the PR head and deployment metadata. This report supersedes earlier **development** setup blockers; the Phase 2.2 production release gate remains closed. No merge, production write, paid upgrade, automatic invitation, Resend sending or Issue #6 implementation is authorized by this work.
 
+## Hosted Owner API checkpoint — 2026-11-07
+
+The approved development Owner supplied working login access for this run. Authentication used TLS-verified Supabase requests and process-memory sessions; no password, JWT, verification link or tenant identifier was saved to this repository or printed in test output. This supersedes the earlier Owner-login credential blocker below. The separate Member-inbox, protected-browser and Auth-configuration blockers remain.
+
+Actual hosted results against the unchanged application code at `e7d91b73bd6d6d6997e8b2a7f3e5f52cceb6c4d8`:
+
+| Check                                             | Result             | Evidence                                                                                                                                                                                              |
+| ------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Native password login / verified identity         | PASS               | Auth sign-in and live `getUser` succeeded for the approved development Owner.                                                                                                                         |
+| Active Owner and trusted session                  | PASS               | Tenant-scoped membership read and `workspace_session_current=true`.                                                                                                                                   |
+| Owner member listing                              | PASS               | Two-seat limit; zero occupied seats before and after the test.                                                                                                                                        |
+| Atomic pending-seat reservation                   | PASS               | One authorized Member reservation increased occupied seats by one.                                                                                                                                    |
+| Idempotent replay / changed replay                | PASS               | Same operation was not recreated; changed payload denied with `22023`.                                                                                                                                |
+| Duplicate pending email                           | PASS               | Separate request for the same approved address denied with `23505`.                                                                                                                                   |
+| Unowned organization / direct membership mutation | PASS               | Authenticated requests were rejected; no role or lifecycle grant was changed.                                                                                                                         |
+| Reservation cleanup / audit preservation          | PASS               | Reservation marked failed through the guarded RPC; seat released; no record or audit deletion. No Member Auth identity was created.                                                                   |
+| Authenticated Edge gate                           | PASS               | Real Owner JWT reached the function; current kill switch returned HTTP 503 with provisioning disabled.                                                                                                |
+| Native Member confirmation redirect               | FAIL configuration | Invalid native confirmation-link probes fell back to `http://localhost:3000/`, not either requested development `/member-confirmed` callback. This is not evidence of a delivered or confirmed email. |
+| Member creation / email / setup / reset / removal | BLOCKED            | Awaiting development Edge switch and correct Auth redirect configuration, then actual approved Member inbox participation.                                                                            |
+| Parallel seat cap / symmetric cross-tenant checks | BLOCKED            | Additional authorized test identities are still unavailable. A nonexistent organization denial is not a full two-tenant test.                                                                         |
+
+The current Supabase advisor additionally reports `auth_leaked_password_protection` at WARN level. [Supabase documents this protection as Pro-plan-and-above](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); no upgrade or purchase was made. The three private-table INFO notices remain expected denials. No authentication or RLS check was removed.
+
+The connected Supabase tools cannot write project Edge secrets or Auth URL settings. The owner was asked to configure these existing, already-authorized development settings:
+
+1. [Development Edge secrets](https://supabase.com/dashboard/project/ebablvrbqbyctzzzmigc/functions/secrets): set `DEVELOPMENT_MEMBER_PROVISIONING_ENABLED=true` for the controlled test. Privileged runtime keys stay Supabase-managed; no admin key belongs on Netlify.
+2. [Development Auth URL configuration](https://supabase.com/dashboard/project/ebablvrbqbyctzzzmigc/auth/url-configuration): set Site URL to `https://saleschild-development.netlify.app`; allow exactly `https://saleschild-development.netlify.app/member-confirmed` and `https://deploy-preview-10--saleschild-development.netlify.app/member-confirmed`, retaining the approved development signup/recovery callbacks below.
+3. Re-probe the native redirects before creating the approved Member. Enable the two Netlify development flags only when the backend and redirect gates pass. Send only the member-requested native confirmation email, with no automatic invitation or Resend.
+
+These are missing external configuration actions, not a request for additional approval. Until verified, Netlify provisioning/verification flags remain false, no successful Member activation is claimed, PR #10 remains open/unmerged and production remains unchanged. Existing read-only boundary results and exact-source CI remain applicable. Any authenticated test sessions created by this run must be signed out locally without revoking the owner's separate browser session.
+
 ## Isolated targets and configuration
 
 - Supabase: `ebablvrbqbyctzzzmigc`, `saleschild-development`, healthy Postgres 17.11. Explicitly different from production `pmthueylomurnypbpezn`.
