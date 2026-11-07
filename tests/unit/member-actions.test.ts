@@ -30,6 +30,16 @@ import { memberProvisioningReadiness } from "@/lib/member-management";
 const ownerId = "41000000-0000-4000-8000-000000000001";
 const memberId = "41000000-0000-4000-8000-000000000002";
 const from = vi.fn();
+const { edgeSelected, edgeConfigured, edgeInvoke } = vi.hoisted(() => ({
+  edgeSelected: vi.fn(),
+  edgeConfigured: vi.fn(),
+  edgeInvoke: vi.fn(),
+}));
+vi.mock("@/lib/supabase/member-edge", () => ({
+  developmentMemberBackendSelected: edgeSelected,
+  developmentMemberBackendConfigured: edgeConfigured,
+  invokeDevelopmentMemberAdmin: edgeInvoke,
+}));
 function form(values: Record<string, string>) {
   const result = new FormData();
   for (const [key, value] of Object.entries(values)) result.set(key, value);
@@ -37,6 +47,8 @@ function form(values: Record<string, string>) {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  edgeSelected.mockReturnValue(false);
+  edgeConfigured.mockReturnValue(false);
   vi.stubEnv("MEMBER_PROVISIONING_ENABLED", "false");
   vi.stubEnv("MEMBER_VERIFICATION_EMAIL_ENABLED", "false");
   configured.mockReturnValue(false);
@@ -119,6 +131,65 @@ describe("member lifecycle server action boundary", () => {
       operation_id: memberId,
       identity_id: memberId,
     });
+  });
+  it("routes development provisioning through Edge with server-trusted tenant and no local admin", async () => {
+    edgeSelected.mockReturnValue(true);
+    edgeConfigured.mockReturnValue(true);
+    vi.stubEnv("MEMBER_PROVISIONING_ENABLED", "true");
+    vi.stubEnv("MEMBER_VERIFICATION_EMAIL_ENABLED", "true");
+    edgeInvoke.mockResolvedValue({
+      success: true,
+      message: "Provisioned",
+      temporaryPasscode: "F".repeat(32),
+    });
+    const result = await provisionMember(
+      {},
+      form({
+        name: "Fictional Member",
+        email: "member@example.test",
+        operation_id: memberId,
+        organization_id: "forged",
+      }),
+    );
+    expect(result.success).toBe(true);
+    expect(edgeInvoke).toHaveBeenCalledWith(expect.anything(), {
+      action: "provision",
+      organizationId: "trusted-org",
+      operationId: memberId,
+      name: "Fictional Member",
+      email: "member@example.test",
+    });
+    expect(provider).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("requires an immutable operation ID for Edge reset and does not fall back on wrong configuration", async () => {
+    edgeSelected.mockReturnValue(true);
+    edgeConfigured.mockReturnValue(true);
+    vi.stubEnv("MEMBER_PROVISIONING_ENABLED", "true");
+    vi.stubEnv("MEMBER_VERIFICATION_EMAIL_ENABLED", "true");
+    expect((await resetMemberPasscode({}, form({ user_id: memberId }))).error).toBe(true);
+    expect(edgeInvoke).not.toHaveBeenCalled();
+    edgeInvoke.mockResolvedValue({ success: false, message: "Unavailable" });
+    await resetMemberPasscode({}, form({ user_id: memberId, operation_id: ownerId }));
+    expect(edgeInvoke).toHaveBeenCalledWith(expect.anything(), {
+      action: "reset",
+      organizationId: "trusted-org",
+      operationId: ownerId,
+      userId: memberId,
+    });
+    edgeConfigured.mockReturnValue(false);
+    configured.mockReturnValue(true);
+    edgeInvoke.mockClear();
+    expect(
+      (
+        await provisionMember(
+          {},
+          form({ name: "Member", email: "member@example.test", operation_id: memberId }),
+        )
+      ).error,
+    ).toBe(true);
+    expect(edgeInvoke).not.toHaveBeenCalled();
+    expect(provider).not.toHaveBeenCalled();
   });
   it("rejects foreign origins before querying identity or account services", async () => {
     origin.mockReturnValue("https://untrusted.example");

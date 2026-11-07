@@ -5,6 +5,10 @@ import { z } from "zod";
 import { appOrigin } from "@/lib/config";
 import { requireUser, requireWorkspace } from "@/lib/session";
 import { memberProvisioningReadiness } from "@/lib/member-management";
+import {
+  developmentMemberBackendSelected,
+  invokeDevelopmentMemberAdmin,
+} from "@/lib/supabase/member-edge";
 import { createMemberAuthProvider } from "@/lib/supabase/member-auth-admin";
 import {
   provisionMemberWithProvider,
@@ -100,9 +104,20 @@ export async function provisionMember(
     return { error: true, message: "Enter a valid name and email, then retry the member form." };
   const readiness = memberProvisioningReadiness();
   if (!readiness.available) return { error: true, message: readiness.reason };
-  const provider = createMemberAuthProvider();
-  if (!provider) return { error: true, message: "Secure member account setup is unavailable." };
   try {
+    if (developmentMemberBackendSelected()) {
+      const result = await invokeDevelopmentMemberAdmin(client, {
+        action: "provision",
+        organizationId: organization.id,
+        operationId: parsed.data.operation_id,
+        email: parsed.data.email,
+        name: parsed.data.name,
+      });
+      revalidatePath("/app/settings");
+      return { ...result, error: !result.success };
+    }
+    const provider = createMemberAuthProvider();
+    if (!provider) return { error: true, message: "Secure member account setup is unavailable." };
     const result = await provisionMemberWithProvider(
       {
         organizationId: organization.id,
@@ -135,9 +150,22 @@ export async function resetMemberPasscode(
   if (!id.success) return { error: true, message: "Choose a valid member." };
   const readiness = memberProvisioningReadiness();
   if (!readiness.available) return { error: true, message: readiness.reason };
-  const provider = createMemberAuthProvider();
-  if (!provider) return { error: true, message: "Secure passcode reset is unavailable." };
   try {
+    if (developmentMemberBackendSelected()) {
+      const operation = z.uuid().safeParse(form.get("operation_id"));
+      if (!operation.success)
+        return { error: true, message: "Start a new reset request from the member form." };
+      const result = await invokeDevelopmentMemberAdmin(client, {
+        action: "reset",
+        organizationId: organization.id,
+        operationId: operation.data,
+        userId: id.data,
+      });
+      revalidatePath("/app/settings");
+      return { ...result, error: !result.success };
+    }
+    const provider = createMemberAuthProvider();
+    if (!provider) return { error: true, message: "Secure passcode reset is unavailable." };
     const result = await resetMemberWithProvider(
       organization.id,
       id.data,

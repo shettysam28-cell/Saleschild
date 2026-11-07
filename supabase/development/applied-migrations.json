@@ -1,0 +1,73 @@
+{
+  "project_id": "ebablvrbqbyctzzzmigc",
+  "scope": "Development only. Evidence of controlled MCP application; not a production migration manifest.",
+  "baseline_source_commit": "e8c2de2a7d0dbc0b5d5e6847716e4aa3c1c8e5cf",
+  "migrations": [
+    {
+      "source": "supabase/migrations/20261103144558_phase_0_foundation.sql",
+      "sha256": "98e1d2c556e835646c5488f85b82546914f81f6410b7f5a07d616c8b59aacff4",
+      "name": "baseline_20261103144558_phase_0_foundation",
+      "version": "20261107085516"
+    },
+    {
+      "source": "supabase/migrations/20261103193852_knowledge_source_imports.sql",
+      "sha256": "becdcf23459598371d6644988ce27ef2d607c3ee468489f30614e59a663c17c3",
+      "name": "baseline_20261103193852_knowledge_source_imports",
+      "version": "20261107085527"
+    },
+    {
+      "source": "supabase/migrations/20261104065510_spreadsheet_import_context.sql",
+      "sha256": "317ee0d9c468228339219670f0afd0fdb38ff2c78076783a7303335b35bb4488",
+      "name": "baseline_20261104065510_spreadsheet_import_context",
+      "version": "20261107085540"
+    },
+    {
+      "source": "supabase/migrations/20261104132541_universal_knowledge_gateway.sql",
+      "sha256": "44f7dc0a523456a402f9b49974a591e3fb7a28962ada15343d9eeae333879b44",
+      "name": "baseline_20261104132541_universal_knowledge_gateway",
+      "version": "20261107085606"
+    },
+    {
+      "source": "supabase/migrations/20261104141759_learning_path_author_access.sql",
+      "sha256": "5539c893c056a8d7c9f7496fd5ba1488930b015fcd3784552dc8dbc1b4bc9226",
+      "name": "baseline_20261104141759_learning_path_author_access",
+      "version": "20261107085616"
+    },
+    {
+      "source": "supabase/migrations/20261105112203_member_workspace_foundation.sql",
+      "sha256": "7fe94750e0efceddde248ed3c761d8f165e141b3c24a6aac9aba8e1eeff858e1",
+      "name": "baseline_20261105112203_member_workspace_foundation",
+      "version": "20261107085628"
+    },
+    {
+      "source": "supabase/migrations/20261105112244_learning_revisions_progress.sql",
+      "sha256": "6fd659f14d0ab3cedcd743abd85d03a71ea24fab951f0c3ac8b29211be2ff8d8",
+      "name": "baseline_20261105112244_learning_revisions_progress",
+      "version": "20261107085643"
+    },
+    {
+      "source": "supabase/migrations/20261105112306_grouped_draft_manager.sql",
+      "sha256": "238cd0457d5ef5449a751d849dab4409ec3a4a296b9ae19bce2442125d58823b",
+      "name": "baseline_20261105112306_grouped_draft_manager",
+      "version": "20261107085657"
+    },
+    {
+      "source": "supabase/migrations/20261106193712_lms_guides_and_grounded_search.sql",
+      "sha256": "5e197be7156536395c96fc1fe2c85045200845adc2c25165b40abc9f89739338",
+      "name": "baseline_20261106193712_lms_guides_and_grounded_search",
+      "version": "20261107085707"
+    },
+    {
+      "source": "supabase/proposals/phase22_member_activation_and_field_labels.sql",
+      "name": "phase22_member_activation_and_field_labels",
+      "sha256": "ca619b5540a38ae1dd5ac77b43fc70635405ba722a2ae95c46614cf66808f1c9",
+      "version": "20261107085831"
+    },
+    {
+      "source": "supabase/development/edge_member_reset.sql",
+      "name": "development_edge_member_reset",
+      "sha256": "8c3e97560454c5386d9cb952741a315a4579eaa8532bf83f8635341a30656c6f",
+      "version": "20261107090848"
+    }
+  ]
+}

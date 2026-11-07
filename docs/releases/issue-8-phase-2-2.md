@@ -1,5 +1,7 @@
 # Issue #8 Phase 2.2 and member provisioning
 
+Latest development-only evidence: [isolated initialization and Edge member administration](development-member-provisioning.md). The authorized development baseline/proposal apply and disabled Edge deployment are recorded there. Historical setup observations below remain historical; the production release gate is unchanged.
+
 Branch: `feature/issue-8-phase-2-2`. Phase 2.1 PR #9 was verified merged, and the current ready Netlify production deploy `6aee2ea5204bad7dae0bc21d` serves `bb73d7dd85f0422778d92f0e29d059f6093b7e64`. The Phase 2.2 start condition is met. Issue #6 and public marketing work are excluded.
 
 ## Release gate

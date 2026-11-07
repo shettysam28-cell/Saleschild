@@ -44,13 +44,22 @@ export function assertDevelopmentDeployment(env) {
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.startsWith("sb_publishable_"),
     "Development deployment requires a publishable Supabase key.",
   );
-  for (const name of [
-    "MEMBER_PROVISIONING_ENABLED",
-    "MEMBER_VERIFICATION_EMAIL_ENABLED",
-    "RESEND_SENDING_ENABLED",
-    "CONTACT_FORM_ENABLED",
-  ])
-    assert(env[name] === "false", "Development provisioning and sending must remain disabled.");
+  const edgeBackend = env.MEMBER_AUTH_BACKEND === "supabase-edge-development";
+  assert(
+    !env.MEMBER_AUTH_BACKEND || edgeBackend,
+    "Development member backend must use the reviewed development Edge Function.",
+  );
+  for (const name of ["MEMBER_PROVISIONING_ENABLED", "MEMBER_VERIFICATION_EMAIL_ENABLED"])
+    assert(
+      env[name] === "false" || (edgeBackend && env[name] === "true"),
+      "Development provisioning must remain disabled without the reviewed Edge backend.",
+    );
+  assert(
+    env.MEMBER_PROVISIONING_ENABLED === env.MEMBER_VERIFICATION_EMAIL_ENABLED,
+    "Development provisioning and verification flags must agree.",
+  );
+  for (const name of ["RESEND_SENDING_ENABLED", "CONTACT_FORM_ENABLED"])
+    assert(env[name] === "false", "Development automatic sending must remain disabled.");
   for (const [name, value] of Object.entries(env)) {
     if (!value) continue;
     assert(

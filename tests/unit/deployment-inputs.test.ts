@@ -73,6 +73,27 @@ describe("development deployment configuration and credential boundaries", () =>
         "must remain disabled",
       );
   });
+  it("allows development activation only with the reviewed backend and paired flags", () => {
+    const activated = {
+      ...env,
+      MEMBER_AUTH_BACKEND: "supabase-edge-development",
+      MEMBER_PROVISIONING_ENABLED: "true",
+      MEMBER_VERIFICATION_EMAIL_ENABLED: "true",
+    };
+    expect(() => assertDevelopmentDeployment(activated)).not.toThrow();
+    expect(() =>
+      assertDevelopmentDeployment({ ...activated, MEMBER_VERIFICATION_EMAIL_ENABLED: "false" }),
+    ).toThrow("must agree");
+    expect(() =>
+      assertDevelopmentDeployment({
+        ...activated,
+        SITE_ID: "1d26223b-029f-41aa-ab43-0aed4f2c45e3",
+      }),
+    ).toThrow("exact isolated");
+    expect(() =>
+      assertDevelopmentDeployment({ ...activated, MEMBER_AUTH_BACKEND: "direct-admin" }),
+    ).toThrow("reviewed development Edge");
+  });
   it.each([
     "SUPABASE_AUTH_ADMIN_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",

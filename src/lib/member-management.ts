@@ -1,10 +1,18 @@
 import "server-only";
 import { requireUser, requireWorkspace } from "@/lib/session";
 import type { AccountSettingsData, MemberSummary } from "@/lib/member-types";
+import {
+  developmentMemberBackendSelected,
+  developmentMemberBackendConfigured,
+} from "@/lib/supabase/member-edge";
 import { memberAuthAdminConfigured } from "@/lib/supabase/member-auth-admin";
 
 export function memberProvisioningReadiness() {
-  if (!memberAuthAdminConfigured())
+  if (
+    !(developmentMemberBackendSelected()
+      ? developmentMemberBackendConfigured()
+      : memberAuthAdminConfigured())
+  )
     return {
       available: false,
       reason:

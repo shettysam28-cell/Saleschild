@@ -1,5 +1,7 @@
 # Isolated Phase 2.2 development build
 
+Development follow-up: [database initialization and reviewed Edge backend](development-member-provisioning.md). The Edge selector now permits paired member flags on this exact isolated site only; the currently deployed flags remain false until external test configuration is available.
+
 Netlify uses `production` as a deploy context for a site's configured primary
 branch. The development site's primary branch is `feature/issue-8-phase-2-2`;
 that context does not identify the real Saleschild production website.
