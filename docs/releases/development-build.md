@@ -8,7 +8,11 @@ The existing `npm run build:netlify` command remains the only build path. Its
 development allowance requires all of these inputs together:
 
 - Netlify-provided `SITE_ID=a017f82c-55f3-48e9-8d36-d0863f0be2ea`.
-- Exact branch `feature/issue-8-phase-2-2` and an exact commit SHA.
+- Exact branch `feature/issue-8-phase-2-2` and an exact commit SHA. For normal
+  primary/branch builds this is `BRANCH`; PR previews must instead have
+  `HEAD=feature/issue-8-phase-2-2`, `PULL_REQUEST=true`, and `REVIEW_ID=10`.
+  Netlify defines `BRANCH` as the checkout reference and `HEAD` as the source
+  branch, so a preview checkout reference must not be mistaken for its source.
 - Supabase URL `https://ebablvrbqbyctzzzmigc.supabase.co`, plus an active
   publishable key accepted by that development gateway. A prefix alone is not
   evidence that an opaque key belongs to the development project.

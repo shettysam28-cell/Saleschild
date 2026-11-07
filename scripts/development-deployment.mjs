@@ -17,10 +17,21 @@ export function assertDevelopmentDeployment(env) {
     env.NETLIFY === "true" && env.SITE_ID === developmentDeployment.siteId,
     "Development deployment requires the exact isolated Netlify site.",
   );
-  assert(
-    env.BRANCH === developmentDeployment.branch,
-    "Development deployment requires the approved Phase 2.2 branch.",
-  );
+  if (env.CONTEXT === "deploy-preview") {
+    // BRANCH is a checkout reference in PR builds; HEAD names the source
+    // branch. Require the actual PR identity as well as its approved source.
+    assert(
+      env.HEAD === developmentDeployment.branch &&
+        env.PULL_REQUEST === "true" &&
+        env.REVIEW_ID === "10",
+      "Development preview requires PR #10 from the approved Phase 2.2 branch.",
+    );
+  } else {
+    assert(
+      env.BRANCH === developmentDeployment.branch,
+      "Development deployment requires the approved Phase 2.2 branch.",
+    );
+  }
   const origin = Object.hasOwn(developmentDeployment.origins, env.CONTEXT ?? "")
     ? developmentDeployment.origins[env.CONTEXT]
     : undefined;

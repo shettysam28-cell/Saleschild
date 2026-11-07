@@ -97,6 +97,26 @@ describe("isolated development publication retains exact-commit CI", () => {
     expect(url.searchParams.get("event")).toBe("push");
     expect(url.searchParams.get("head_sha")).toBe(sha);
   });
+  it("uses the source HEAD and exact PR identity when BRANCH is a preview checkout reference", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(response([developmentRun]));
+    expect(
+      await awaitGithubCI({
+        env: {
+          ...developmentEnv,
+          CONTEXT: "deploy-preview",
+          APP_URL: developmentDeployment.origins["deploy-preview"],
+          BRANCH: "main",
+          HEAD: developmentDeployment.branch,
+          PULL_REQUEST: "true",
+          REVIEW_ID: "10",
+        },
+        fetcher,
+      }),
+    ).toContain("exact development commit");
+    expect(new URL(String(fetcher.mock.calls[0][0])).searchParams.get("branch")).toBe(
+      developmentDeployment.branch,
+    );
+  });
   it.each([undefined, "1d26223b-029f-41aa-ab43-0aed4f2c45e3", "unapproved-site"])(
     "cannot enable the feature-branch production-context path on site %s",
     async (siteId) => {

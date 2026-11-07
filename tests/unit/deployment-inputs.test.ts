@@ -25,14 +25,40 @@ describe("development deployment configuration and credential boundaries", () =>
   it.each(Object.entries(target.origins))(
     "accepts only the exact origin for context %s",
     (context, origin) => {
+      const contextualEnv = {
+        ...env,
+        CONTEXT: context,
+        APP_URL: origin,
+        ...(context === "deploy-preview"
+          ? { BRANCH: "main", HEAD: target.branch, PULL_REQUEST: "true", REVIEW_ID: "10" }
+          : {}),
+      };
+      expect(() => assertDevelopmentDeployment(contextualEnv)).not.toThrow();
       expect(() =>
-        assertDevelopmentDeployment({ ...env, CONTEXT: context, APP_URL: origin }),
-      ).not.toThrow();
-      expect(() =>
-        assertDevelopmentDeployment({ ...env, CONTEXT: context, APP_URL: "https://foreign.test" }),
+        assertDevelopmentDeployment({ ...contextualEnv, APP_URL: "https://foreign.test" }),
       ).toThrow("APP_URL must match");
     },
   );
+  it.each([
+    { HEAD: "main" },
+    { HEAD: undefined },
+    { REVIEW_ID: "11" },
+    { REVIEW_ID: undefined },
+    { PULL_REQUEST: "false" },
+  ])("rejects an unapproved preview identity %o", (changes) => {
+    expect(() =>
+      assertDevelopmentDeployment({
+        ...env,
+        CONTEXT: "deploy-preview",
+        APP_URL: target.origins["deploy-preview"],
+        BRANCH: "main",
+        HEAD: target.branch,
+        PULL_REQUEST: "true",
+        REVIEW_ID: "10",
+        ...changes,
+      }),
+    ).toThrow("requires PR #10");
+  });
   it.each(["", "unknown", "dev", "constructor"])("rejects context %s", (context) => {
     expect(() => assertDevelopmentDeployment({ ...env, CONTEXT: context })).toThrow();
   });
