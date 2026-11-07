@@ -6,15 +6,15 @@ This is **partial development acceptance**, not a production release. Full hoste
 
 ## Verified targets and source
 
-| Resource                   | Verified development target                                                                      |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| Supabase                   | `ebablvrbqbyctzzzmigc`, `saleschild-development`                                                 |
-| Netlify site               | `a017f82c-55f3-48e9-8d36-d0863f0be2ea`, `saleschild-development`                                 |
-| Primary URL                | <https://saleschild-development.netlify.app>                                                     |
-| PR preview                 | <https://deploy-preview-10--saleschild-development.netlify.app>                                  |
-| Application code exercised | `45d45420758c2c3e36fc44b7d0fc0e381f855647`; the final acceptance update changes this report only |
-| Edge Function              | `development-member-admin`, version 2, `verify_jwt=true`                                         |
-| Edge artifact SHA-256      | `e8897ddb6f2272eb7376d8172cec1d2322313d65f274ef0cf8e565e4b7db6690`                               |
+| Resource                   | Verified development target                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| Supabase                   | `ebablvrbqbyctzzzmigc`, `saleschild-development`                                                   |
+| Netlify site               | `a017f82c-55f3-48e9-8d36-d0863f0be2ea`, `saleschild-development`                                   |
+| Primary URL                | <https://saleschild-development.netlify.app>                                                       |
+| PR preview                 | <https://deploy-preview-10--saleschild-development.netlify.app>                                    |
+| Application code exercised | `45d45420758c2c3e36fc44b7d0fc0e381f855647`; the final acceptance updates change release notes only |
+| Edge Function              | `development-member-admin`, version 3, `verify_jwt=true`                                           |
+| Edge artifact SHA-256      | `e8897ddb6f2272eb7376d8172cec1d2322313d65f274ef0cf8e565e4b7db6690`                                 |
 
 The final website revision is the documentation-only commit containing this report; its exact SHA, completed CI and Netlify deploy IDs are recorded in the PR summary and execution handover after publication. No application or SQL implementation changed during this acceptance run.
 
