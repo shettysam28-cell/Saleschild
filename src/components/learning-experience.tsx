@@ -2,6 +2,7 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { presentLesson } from "@/lib/learning/lesson";
+import { displayFields } from "@/lib/knowledge/field-labels";
 import {
   buildCurriculum,
   resumeUnitIndex,
@@ -232,7 +233,7 @@ export function LearningExperience({
       aria-labelledby="learning-intelligence-heading"
     >
       <h2 id="learning-intelligence-heading">
-        {preview ? "Owner lesson preview" : "Your learning path"}
+        {preview ? "Preview as learner" : "Your learning path"}
       </h2>
       <p>
         Follow the modules, read each lesson and check your understanding. Lessons use approved
@@ -435,11 +436,22 @@ export function LearningExperience({
               </>
             )}
             <details style={{ marginBlock: 20 }}>
-              <summary>Approved snapshot and source reference</summary>
+              <summary>Source evidence</summary>
               <p>
                 Knowledge record {unit.source_knowledge_id} · version {unit.source_version}
               </p>
-              <p className="knowledge-body">{unit.body}</p>
+              {unit.source_fields.length ? (
+                <dl className="gateway-field-list">
+                  {displayFields(unit.source_fields, unit.field_labels).map((f) => (
+                    <div key={f.id}>
+                      <dt>{f.label}</dt>
+                      <dd>{f.value || "—"}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="knowledge-body">{unit.body}</p>
+              )}
             </details>
             {!preview && (
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBlock: 16 }}>

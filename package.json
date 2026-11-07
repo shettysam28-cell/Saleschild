@@ -23,7 +23,8 @@
     "review:measure": "node scripts/measure-local.mjs",
     "security:repo": "node scripts/check-repository.mjs",
     "verify:repository": "node scripts/verify-repository.mjs",
-    "test:import:e2e": "playwright test --config=playwright.import.config.ts"
+    "test:import:e2e": "playwright test --config=playwright.import.config.ts",
+    "typecheck:edge": "npm exec --yes --package=deno@2.9.6 -- deno check --frozen --config supabase/functions/development-member-admin/deno.json supabase/functions/development-member-admin/index.ts"
   },
   "engines": {
     "node": ">=22.14.0"

@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { assertDevelopmentDeployment, developmentDeployment } from "./development-deployment.mjs";
 
 const repository = "shettysam28-cell/Saleschild";
 const workflow = "validate.yml";
@@ -12,18 +13,22 @@ export async function awaitGithubCI({
 } = {}) {
   if (env.NETLIFY !== "true" || env.CONTEXT === "dev")
     return "Local build: production CI gate is not required.";
-  if (["deploy-preview", "branch-deploy"].includes(env.CONTEXT))
+  const development = env.SITE_ID === developmentDeployment.siteId;
+  if (development) assertDevelopmentDeployment(env);
+  if (!development && ["deploy-preview", "branch-deploy"].includes(env.CONTEXT))
     return "Non-production build: production CI gate is not required.";
-  if (env.CONTEXT !== "production" || env.BRANCH !== "main")
+  if (!development && (env.CONTEXT !== "production" || env.BRANCH !== "main"))
     throw new Error("Production deployment requires the main branch and production context.");
+  const branch = development ? developmentDeployment.branch : "main";
+  const target = development ? "development" : "production";
   const sha = env.COMMIT_REF;
   if (!/^[a-f0-9]{40}$/i.test(sha ?? ""))
-    throw new Error("Production deployment requires an exact Git commit reference.");
+    throw new Error(`${target} deployment requires an exact Git commit reference.`);
   const endpoint = new URL(
     `https://api.github.com/repos/${repository}/actions/workflows/${workflow}/runs`,
   );
   endpoint.search = new URLSearchParams({
-    branch: "main",
+    branch,
     event: "push",
     head_sha: sha,
     per_page: "10",
@@ -43,16 +48,14 @@ export async function awaitGithubCI({
     const run = result.workflow_runs.find(
       (r) =>
         r.head_sha === sha &&
-        r.head_branch === "main" &&
+        r.head_branch === branch &&
         r.event === "push" &&
         r.repository?.full_name === repository,
     );
     if (run?.status === "completed") {
       if (run.conclusion !== "success")
-        throw new Error(
-          "GitHub CI did not succeed for this production commit. Deployment is held.",
-        );
-      return "GitHub CI passed for the exact production commit.";
+        throw new Error(`GitHub CI did not succeed for this ${target} commit. Deployment is held.`);
+      return `GitHub CI passed for the exact ${target} commit.`;
     }
     if (attempt + 1 < attempts) await pause(interval);
   }

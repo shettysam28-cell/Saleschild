@@ -7,6 +7,7 @@ const other = "11000000-0000-4000-8000-000000000002";
 const member = "11000000-0000-4000-8000-000000000003";
 const admin = "11000000-0000-4000-8000-000000000004";
 const unverified = "11000000-0000-4000-8000-000000000005";
+const newMember = "11000000-0000-4000-8000-000000000006";
 let org: string, otherOrg: string;
 let counter = 0;
 function operation() {
@@ -49,13 +50,17 @@ beforeAll(async () => {
     .filter((f) => f.endsWith(".sql"))
     .sort())
     await db.exec(await readFile(`supabase/migrations/${file}`, "utf8"));
-  for (const id of [owner, other, member, admin, unverified])
+  // Review the proposed DDL locally; it is not applied to any hosted project.
+  await db.exec(
+    await readFile("supabase/proposals/phase22_member_activation_and_field_labels.sql", "utf8"),
+  );
+  for (const id of [owner, other, member, admin, unverified, newMember])
     await db.query("insert into auth.users(id,email,email_confirmed_at)values($1,$2,$3)", [
       id,
       `${id}@example.test`,
-      id === unverified ? null : "2026-11-04",
+      [unverified, newMember].includes(id) ? null : "2026-11-04",
     ]);
-  for (const id of [owner, other, member, admin, unverified])
+  for (const id of [owner, other, member, admin, unverified, newMember])
     await db.query("insert into auth.sessions(id,user_id,created_at)values($1,$2,'2050-01-01')", [
       id.replace(/^11/, "33"),
       id,
@@ -342,5 +347,49 @@ describe("member provisioning and current-token authorization", () => {
         ]),
       ),
     ).rejects.toThrow(/rate limit/);
+  });
+  it("activates an initially unverified provisioned member only after verified email, password change and fresh sign-in", async () => {
+    const id = operation();
+    await reserve(id);
+    await attach(id, newMember);
+    expect(
+      (await db.query("select state from public.member_provisioning where id=$1", [id])).rows,
+    ).toEqual([{ state: "awaiting_verification" }]);
+    await expect(
+      as(newMember, () => db.query("select public.complete_member_setup($1)", [org])),
+    ).rejects.toThrow(/Verified password setup/);
+    await db.query("update auth.users set email_confirmed_at=now() where id=$1", [newMember]);
+    await expect(
+      as(newMember, () => db.query("select public.complete_member_setup($1)", [org])),
+    ).rejects.toThrow(/Verified password setup/);
+    await db.query(
+      "update auth.users set encrypted_password='fictional-personal-password-hash' where id=$1",
+      [newMember],
+    );
+    await db.query("update auth.sessions set created_at='2000-01-01' where user_id=$1", [
+      newMember,
+    ]);
+    await expect(
+      as(newMember, () => db.query("select public.complete_member_setup($1)", [org])),
+    ).rejects.toThrow(/Verified password setup/);
+    await db.query("update auth.sessions set created_at='2050-01-01' where user_id=$1", [
+      newMember,
+    ]);
+    await as(newMember, () => db.query("select public.complete_member_setup($1)", [org]));
+    expect(
+      (await db.query("select state from public.member_provisioning where id=$1", [id])).rows,
+    ).toEqual([{ state: "active" }]);
+    expect(
+      (await as(newMember, () => db.query("select id from public.organizations"), 1)).rows,
+    ).toEqual([]);
+    expect(
+      (await as(newMember, () => db.query("select id from public.organizations"))).rows,
+    ).toEqual([{ id: org }]);
+    await as(owner, () =>
+      db.query("select public.remove_workspace_member($1,$2)", [org, newMember]),
+    );
+    expect(
+      (await as(newMember, () => db.query("select id from public.organizations"))).rows,
+    ).toEqual([]);
   });
 });

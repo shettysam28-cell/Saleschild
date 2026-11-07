@@ -1,4 +1,5 @@
 import type { GatewayField } from "@/lib/knowledge/gateway-model";
+import { displayFields, type FieldLabels } from "@/lib/knowledge/field-labels";
 
 export type ApprovedLearningSource = {
   id: string;
@@ -9,6 +10,7 @@ export type ApprovedLearningSource = {
   source_knowledge_id: string | null;
   source_version: number | null;
   source_fields: GatewayField[];
+  field_labels?: FieldLabels;
 };
 export type SourceCheckpoint = {
   label: string;
@@ -38,7 +40,9 @@ const trimSpaces = (value: string) => value.replace(/^ +| +$/g, "");
 const codepoints = (value: string) => Array.from(value);
 const labelKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-export function sourceCheckpoint(source: Pick<ApprovedLearningSource, "body" | "source_fields">) {
+export function sourceCheckpoint(
+  source: Pick<ApprovedLearningSource, "body" | "source_fields" | "field_labels">,
+) {
   const field = source.source_fields.find((f) => {
     const value = trimSpaces(f.value);
     return value.length > 0 && codepoints(value).length <= 500;
@@ -52,7 +56,9 @@ export function sourceCheckpoint(source: Pick<ApprovedLearningSource, "body" | "
   if (field && choices.length) choices.push(expected);
   choices.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   return {
-    label: field ? trimSpaces(field.label) || "Source content" : "Source content",
+    label: field
+      ? trimSpaces(displayFields([field], source.field_labels)[0].label) || "Source content"
+      : "Source content",
     expected,
     choices: field && choices.length > 1 ? choices : [],
     mode: field && choices.length > 1 ? ("select" as const) : ("confirm" as const),
@@ -65,7 +71,9 @@ export function buildCurriculum(sources: ApprovedLearningSource[]) {
     .filter((source) => source.source_knowledge_id && source.source_version)
     .sort((a, b) => a.position - b.position);
   const units: LearningUnit[] = eligible.map((source) => {
-    const facts = source.source_fields.filter((field) => field.value.trim());
+    const facts = displayFields(source.source_fields, source.field_labels).filter((field) =>
+      field.value.trim(),
+    );
     const field = (aliases: string[]) =>
       facts.find((candidate) => aliases.includes(labelKey(candidate.label)));
     const group = field(["category", "module", "product", "department"]);
@@ -76,7 +84,7 @@ export function buildCurriculum(sources: ApprovedLearningSource[]) {
       ...source,
       group: group && codepoints(group.value).length <= 160 ? group.value : "Approved sources",
       objective: objective?.value ?? null,
-      facts,
+      facts: displayFields(facts, source.field_labels),
       scenario:
         situation && response
           ? {

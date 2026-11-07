@@ -2,6 +2,8 @@ import "server-only";
 import { requireWorkspace } from "@/lib/session";
 import { canAuthor } from "@/lib/permissions";
 import type { GatewayField } from "./gateway-model";
+import { readFieldLabels } from "./field-label-reader";
+import { needsFieldLabels } from "./field-labels";
 export type SourceLesson = {
   id: string;
   title: string;
@@ -10,6 +12,7 @@ export type SourceLesson = {
   source_knowledge_id: string | null;
   source_version: number | null;
   source_fields: GatewayField[];
+  field_labels?: import("./field-labels").FieldLabels;
 };
 export async function loadLearningPath(id: string) {
   const ws = await requireWorkspace();
@@ -30,12 +33,27 @@ export async function loadLearningPath(id: string) {
         .limit(200)
     : { data: [], error: null };
   if (approved.error) throw Error("Approved knowledge could not be loaded.");
+  const resultData = result.data as {
+    course: { id: string; title: string; description: string; status: string };
+    lessons: SourceLesson[];
+  };
+  const labels = await readFieldLabels(
+    ws.client,
+    ws.organization.id,
+    resultData.lessons
+      .filter((l) => needsFieldLabels(l.source_fields))
+      .flatMap((l) => (l.source_knowledge_id ? [l.source_knowledge_id] : [])),
+  );
   return {
     ...(result.data as {
       course: { id: string; title: string; description: string; status: string };
       lessons: SourceLesson[];
     }),
     author,
+    lessons: resultData.lessons.map((l) => ({
+      ...l,
+      field_labels: l.source_knowledge_id ? labels[l.source_knowledge_id] : undefined,
+    })),
     approved: (approved.data ?? []) as { id: string; title: string; current_version: number }[],
   };
 }

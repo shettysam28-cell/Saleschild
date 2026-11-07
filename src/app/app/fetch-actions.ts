@@ -2,6 +2,8 @@
 import { z } from "zod";
 import { requireWorkspace } from "@/lib/session";
 import { knowledgeQuery, answerFromSources, type GroundedAnswer } from "@/lib/knowledge/answers";
+import { displayFields, needsFieldLabels } from "@/lib/knowledge/field-labels";
+import { readFieldLabels } from "@/lib/knowledge/field-label-reader";
 export type FetchResult = {
   answer?: GroundedAnswer;
   results?: { id: string; title: string; excerpt: string; version: number }[];
@@ -51,7 +53,18 @@ export async function fetchKnowledge(query: string): Promise<FetchResult> {
   const records = source.array().max(5).safeParse(result.data);
   if (!records.success)
     return { error: true, message: "Search results could not be verified. Please try again." };
-  const answer = answerFromSources(parsed.data, records.data);
+  const labels = await readFieldLabels(
+    client,
+    organization.id,
+    records.data.filter((row) => needsFieldLabels(row.custom_fields)).map((row) => row.id),
+  );
+  const answer = answerFromSources(
+    parsed.data,
+    records.data.map((row) => ({
+      ...row,
+      custom_fields: displayFields(row.custom_fields, labels[row.id]),
+    })),
+  );
   const matched = new Set(answer.citations.map((c) => c.knowledgeId));
   return {
     answer,

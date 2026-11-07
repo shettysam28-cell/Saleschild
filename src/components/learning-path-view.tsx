@@ -4,6 +4,7 @@ import { LearningSourcePicker } from "./learning-source-picker";
 import type { loadLearningPath } from "@/lib/knowledge/learning";
 import { LearningExperience, LearningPublisher } from "./learning-experience";
 import type { LearningWorkspace } from "@/lib/learning/read-model";
+import { displayFields } from "@/lib/knowledge/field-labels";
 export function LearningPathView({
   data,
   learning,
@@ -98,7 +99,7 @@ export function LearningPathView({
                   )}
                   {lesson.source_fields.length ? (
                     <dl className="gateway-field-list">
-                      {lesson.source_fields.map((f) => (
+                      {displayFields(lesson.source_fields, lesson.field_labels).map((f) => (
                         <div key={f.id}>
                           <dt>{f.label}</dt>
                           <dd>{f.value || "—"}</dd>

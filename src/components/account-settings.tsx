@@ -43,13 +43,24 @@ function timeLabel(value: string | null) {
 function MemberControls({ member, enabled }: { member: MemberSummary; enabled: boolean }) {
   const [removal, removeAction, removing] = useActionState(removeMember, {});
   const [reset, resetAction, resetting] = useActionState(resetMemberPasscode, {});
+  const [resetOperation, setResetOperation] = useState("");
   const [showPasscode, setShowPasscode] = useState(true);
   if (member.role !== "learner" || !member.userId || member.status === "revoked") return null;
   return (
     <div className="member-controls">
-      <form action={resetAction} onSubmit={() => setShowPasscode(true)}>
+      <form
+        action={resetAction}
+        onSubmit={() => setShowPasscode(true)}
+        onFocus={() => {
+          if (!resetOperation) setResetOperation(crypto.randomUUID());
+        }}
+      >
+        <input type="hidden" name="operation_id" value={resetOperation} />
         <input type="hidden" name="user_id" value={member.userId} />
-        <button className="button button-outline button-small" disabled={!enabled || resetting}>
+        <button
+          className="button button-outline button-small"
+          disabled={!enabled || resetting || reset.success}
+        >
           Reset temporary passcode
         </button>
         {reset.message && <p role={reset.error ? "alert" : "status"}>{reset.message}</p>}
@@ -145,7 +156,7 @@ function ProvisionMemberForm({
             </p>
             <CopyValue
               value={() =>
-                `Your Saleschild account has been prepared. Visit ${window.location.origin}/login and use the email your organization owner registered. Your temporary passcode is shared separately. Email verification and first-login setup are required.`
+                `Your Saleschild account has been prepared. Visit ${window.location.origin}/member-verification to request an email confirmation, then sign in at ${window.location.origin}/login with your registered email. Your temporary passcode is shared separately. After verifying your email, change the temporary password and sign in again to activate your learning workspace.`
               }
             >
               Copy invitation

@@ -22,6 +22,7 @@ jobs:
       - run: npm run security:repo
       - run: npm run format:check
       - run: npm run check
+      - run: npm run typecheck:edge
       - run: npm run build
       - run: npm run security:build
       - run: npx playwright install --with-deps chromium

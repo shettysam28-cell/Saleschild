@@ -2,14 +2,35 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseConfig } from "@/lib/config";
 import type { MemberAuthProvider } from "@/lib/member-provisioning";
+import { workspaceFetch } from "./request";
+
+function configuredAdminKey() {
+  const key = process.env.SUPABASE_AUTH_ADMIN_KEY;
+  if (!key) return null;
+  if (key.startsWith("sb_secret_") && key.length > 24) return key;
+  try {
+    const parts = key.split(".");
+    if (
+      parts.length === 3 &&
+      JSON.parse(Buffer.from(parts[1], "base64url").toString()).role === "service_role"
+    )
+      return key;
+  } catch {
+    /* Invalid server configuration remains unavailable. */
+  }
+  return null;
+}
+export function memberAuthAdminConfigured() {
+  return Boolean(supabaseConfig() && configuredAdminKey());
+}
 
 /** Narrow Auth-only adapter. Never expose a privileged database client. */
 export function createMemberAuthProvider(): MemberAuthProvider | null {
   const config = supabaseConfig();
-  const key = process.env.SUPABASE_AUTH_ADMIN_KEY;
-  if (!config || !key || !(key.startsWith("sb_secret_") || key.split(".").length === 3))
-    return null;
+  const key = configuredAdminKey();
+  if (!config || !key) return null;
   const admin = createClient(config.url, key, {
+    global: { fetch: workspaceFetch },
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
   }).auth.admin;
   return {

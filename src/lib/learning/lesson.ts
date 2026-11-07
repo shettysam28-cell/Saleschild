@@ -1,4 +1,5 @@
 import type { ApprovedLearningSource } from "./curriculum";
+import { displayFields } from "@/lib/knowledge/field-labels";
 
 const normalized = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 const metadata = new Set([
@@ -14,7 +15,9 @@ const metadata = new Set([
   "objective",
 ]);
 export function presentLesson(source: ApprovedLearningSource) {
-  const fields = source.source_fields.filter((f) => f.value.trim());
+  const fields = displayFields(source.source_fields, source.field_labels).filter((f) =>
+    f.value.trim(),
+  );
   const suppliedTitle = fields
     .find(
       (f) =>
@@ -40,7 +43,7 @@ export function presentLesson(source: ApprovedLearningSource) {
           ? "How to apply it"
           : /mistake|avoid/i.test(field.label)
             ? "What to avoid"
-            : /^column\s*\d+$/i.test(field.label)
+            : /^(?:column\s*\d+|unmapped field c\d+)$/i.test(field.label)
               ? `Key idea ${index + 1}`
               : field.label,
       text: field.value,

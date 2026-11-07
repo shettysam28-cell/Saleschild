@@ -24,6 +24,8 @@ import {
   type LibraryRecord,
 } from "@/components/knowledge-navigation";
 import { knowledgeQuery } from "@/lib/knowledge/answers";
+import { readFieldLabels } from "@/lib/knowledge/field-label-reader";
+import { needsFieldLabels } from "@/lib/knowledge/field-labels";
 function Empty({
   title,
   description,
@@ -134,16 +136,22 @@ export default async function ModulePage({
             ? { data: [], error: null }
             : await client
                 .from("knowledge_items")
-                .select("id,title,body,current_version,source_url,evidence_status")
+                .select("id,title,body,current_version,source_url,evidence_status,custom_fields")
                 .eq("organization_id", organization.id)
                 .eq("status", "published")
                 .is("discarded_at", null)
                 .order("created_at", { ascending: false })
                 .limit(50);
+      const records = (result.data ?? []) as LibraryRecord[];
+      const labels = await readFieldLabels(
+        client,
+        organization.id,
+        records.filter((row) => needsFieldLabels(row.custom_fields ?? [])).map((row) => row.id),
+      );
       workspace = (
         <KnowledgeLibrary
           q={q}
-          records={(result.data ?? []) as LibraryRecord[]}
+          records={records.map((record) => ({ ...record, field_labels: labels[record.id] }))}
           error={
             result.error
               ? "Published knowledge could not be loaded. Retry or contact your owner."
